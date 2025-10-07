@@ -25,4 +25,4 @@ vendor/
 .vscode
 
 # Test for learning
-internal/test
+internal/learn
