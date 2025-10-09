@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	models "metrify/internal/model"
 	"metrify/internal/service"
 	"net/http"
@@ -9,6 +10,18 @@ import (
 const updateContentType = "text/plain"
 
 var ms = service.NewMemStorage()
+
+func Get(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	json.NewEncoder(w).Encode(ms)
+}
 
 func Update(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
