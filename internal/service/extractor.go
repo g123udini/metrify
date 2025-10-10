@@ -2,7 +2,6 @@ package service
 
 import (
 	"errors"
-	"strconv"
 	"strings"
 )
 
@@ -13,7 +12,7 @@ var (
 func split(path string) ([]string, error) {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 
-	if len(parts) < 4 {
+	if len(parts) < 2 {
 		return nil, ErrInvalidPathFormat
 	}
 
@@ -28,34 +27,4 @@ func ExtractType(path string) (string, error) {
 	}
 
 	return parts[1], err
-}
-
-func ExtractName(path string) (string, error) {
-	parts, err := split(path)
-
-	if err != nil {
-		return "", err
-	}
-
-	return parts[2], err
-}
-
-func ExtractCounterValue(path string) (int64, error) {
-	parts, err := split(path)
-
-	if err != nil {
-		return 0, err
-	}
-
-	return strconv.ParseInt(parts[3], 10, 64)
-}
-
-func ExtractGaugeValue(path string) (float64, error) {
-	parts, err := split(path)
-
-	if err != nil {
-		return 0, err
-	}
-
-	return strconv.ParseFloat(parts[3], 64)
 }

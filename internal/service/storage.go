@@ -21,12 +21,16 @@ type Storage interface {
 	UpdateCounter(name string, delta int64)
 }
 
-func (ms *MemStorage) GetCounter(key string) int64 {
-	return ms.counters[key]
+func (ms *MemStorage) GetCounter(key string) (int64, bool) {
+	val, ok := ms.counters[key]
+
+	return val, ok
 }
 
-func (ms *MemStorage) GetGauge(key string) float64 {
-	return ms.gauges[key]
+func (ms *MemStorage) GetGauge(key string) (float64, bool) {
+	val, ok := ms.gauges[key]
+
+	return val, ok
 }
 
 func (ms *MemStorage) UpdateGauge(name string, value float64) {

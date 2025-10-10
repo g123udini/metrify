@@ -11,7 +11,7 @@ func UpdateMetric(metricType string, metricName string, value string) error {
 	path := "/update/{metricType}/{metricName}/{value}"
 	client := resty.New()
 	client.
-		SetHeader("Content-Type", handler.UpdateContentType).
+		SetHeader("Content-Type", handler.TextUpdateContentType).
 		SetHostURL(host).
 		SetPathParams(map[string]string{
 			"metricName": metricName,
