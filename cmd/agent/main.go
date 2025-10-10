@@ -28,13 +28,13 @@ func main() {
 		if time.Since(lastReport) >= reportInterval {
 			for key, metric := range gauges {
 				val := strconv.FormatFloat(metric, 'f', -1, 64)
-				if err := agent.SendMetric(models.Gauge, key, val); err != nil {
+				if err := agent.UpdateMetric(models.Gauge, key, val); err != nil {
 					panic(err)
 				}
 			}
 
 			val := strconv.FormatInt(pollCount, 10)
-			if err := agent.SendMetric(models.Counter, "PollCount", val); err != nil {
+			if err := agent.UpdateMetric(models.Counter, "PollCount", val); err != nil {
 				panic(err)
 			}
 

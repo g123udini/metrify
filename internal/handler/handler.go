@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-const updateContentType = "text/plain"
+const UpdateContentType = "text/plain"
 
 var ms = service.NewMemStorage()
 
@@ -29,7 +29,7 @@ func Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if updateContentType != r.Header.Get("Content-Type") {
+	if UpdateContentType != r.Header.Get("Content-Type") {
 		http.Error(w, "Unsupported Media Type", http.StatusUnsupportedMediaType)
 		return
 	}
