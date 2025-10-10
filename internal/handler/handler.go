@@ -82,7 +82,7 @@ func MetricTypeMiddleware(next http.Handler) http.Handler {
 		metricType, err := service.ExtractType(path)
 
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusNotFound)
 		}
 
 		if !service.ValidateMetricType(metricType) {
