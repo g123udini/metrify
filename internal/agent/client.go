@@ -1,30 +1,29 @@
 package agent
 
 import (
-	"fmt"
+	"gopkg.in/resty.v1"
 	"metrify/internal/handler"
-	"net/http"
 )
 
-const host = "localhost:8080"
+const host = "http://localhost:8080"
 
 func UpdateMetric(metricType string, metricName string, value string) error {
-	url := fmt.Sprintf("http://%s/update/%s/%s/%s", host, metricType, metricName, value)
+	path := "/update/{metricType}/{metricName}/{value}"
+	client := resty.New()
+	client.
+		SetHeader("Content-Type", handler.UpdateContentType).
+		SetHostURL(host).
+		SetPathParams(map[string]string{
+			"metricName": metricName,
+			"metricType": metricType,
+			"value":      value,
+		})
 
-	req, err := http.NewRequest(http.MethodPost, url, nil)
+	_, err := client.R().Post(path)
 
 	if err != nil {
 		return err
 	}
-
-	req.Header.Set("Content-Type", handler.UpdateContentType)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
 
 	return nil
 }
