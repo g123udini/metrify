@@ -1,14 +1,20 @@
 package main
 
 import (
+	"fmt"
 	"metrify/internal/router"
 	"net/http"
 )
 
 func main() {
-	err := http.ListenAndServe(":8080", router.Metric())
+	parseFlags()
 
-	if err != nil {
+	if err := run(); err != nil {
 		panic(err)
 	}
+}
+
+func run() error {
+	fmt.Println("Running server on", flagRunAddr)
+	return http.ListenAndServe(flagRunAddr, router.Metric())
 }

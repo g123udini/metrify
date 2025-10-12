@@ -5,9 +5,7 @@ import (
 	"metrify/internal/handler"
 )
 
-const host = "http://localhost:8080"
-
-func UpdateMetric(metricType string, metricName string, value string) error {
+func UpdateMetric(host, metricType string, metricName string, value string) error {
 	path := "/update/{metricType}/{metricName}/{value}"
 	client := resty.New()
 	client.

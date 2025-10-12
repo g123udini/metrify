@@ -7,17 +7,13 @@ import (
 	"time"
 )
 
-const (
-	pollInterval   = 2 * time.Second
-	reportInterval = 10 * time.Second
-)
-
 func main() {
 	var (
 		pollCount  int64
 		gauges     map[string]float64
 		lastReport = time.Now()
 	)
+	parsesFlags()
 
 	for {
 		time.Sleep(pollInterval)
@@ -28,13 +24,13 @@ func main() {
 		if time.Since(lastReport) >= reportInterval {
 			for key, metric := range gauges {
 				val := strconv.FormatFloat(metric, 'f', -1, 64)
-				if err := agent.UpdateMetric(models.Gauge, key, val); err != nil {
+				if err := agent.UpdateMetric(host, models.Gauge, key, val); err != nil {
 					panic(err)
 				}
 			}
 
 			val := strconv.FormatInt(pollCount, 10)
-			if err := agent.UpdateMetric(models.Counter, "PollCount", val); err != nil {
+			if err := agent.UpdateMetric(host, models.Counter, "PollCount", val); err != nil {
 				panic(err)
 			}
 
