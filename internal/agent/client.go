@@ -6,12 +6,14 @@ import (
 	"metrify/internal/handler"
 )
 
-func UpdateMetric(host, metricType string, metricName string, value string) error {
+var host = "http://localhost"
+
+func UpdateMetric(port, metricType string, metricName string, value string) error {
 	path := "/update/{metricType}/{metricName}/{value}"
 	client := resty.New()
 	client.
 		SetHeader("Content-Type", handler.TextUpdateContentType).
-		SetHostURL(fmt.Sprintf(host)).
+		SetHostURL(fmt.Sprintf(host + port)).
 		SetPathParams(map[string]string{
 			"metricName": metricName,
 			"metricType": metricType,

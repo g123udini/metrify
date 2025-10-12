@@ -3,6 +3,7 @@ package main
 import (
 	"metrify/internal/agent"
 	models "metrify/internal/model"
+	"net"
 	"strconv"
 	"time"
 )
@@ -14,6 +15,12 @@ func main() {
 		lastReport = time.Now()
 	)
 	parsesFlags()
+
+	if h, p, err := net.SplitHostPort(host); err == nil {
+		if h == "localhost" || h == "" {
+			host = ":" + p
+		}
+	}
 
 	for {
 		time.Sleep(time.Duration(pollInterval) * time.Second)
