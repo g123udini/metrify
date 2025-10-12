@@ -16,12 +16,12 @@ func main() {
 	parsesFlags()
 
 	for {
-		time.Sleep(pollInterval)
+		time.Sleep(time.Duration(pollInterval) * time.Second)
 
 		gauges = agent.CollectGauge()
 		pollCount++
 
-		if time.Since(lastReport) >= reportInterval {
+		if time.Since(lastReport) >= time.Duration(reportInterval)*time.Second {
 			for key, metric := range gauges {
 				val := strconv.FormatFloat(metric, 'f', -1, 64)
 				if err := agent.UpdateMetric(port, models.Gauge, key, val); err != nil {
