@@ -19,7 +19,7 @@ func run() error {
 	fmt.Println("Running server on", flagRunAddr)
 	if h, p, err := net.SplitHostPort(flagRunAddr); err == nil {
 		if h == "localhost" || h == "" {
-			flagRunAddr = ":" + p // нормализуем к ":38849"
+			flagRunAddr = ":" + p
 		}
 	}
 	return http.ListenAndServe(flagRunAddr, router.Metric())
