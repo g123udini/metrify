@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"metrify/internal/service"
 	"net/http"
@@ -11,12 +10,6 @@ import (
 const TextUpdateContentType = "text/plain"
 
 var ms = service.NewMemStorage()
-
-func GetList(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-
-	json.NewEncoder(w).Encode(ms)
-}
 
 func GetGauge(w http.ResponseWriter, r *http.Request) {
 	metricName := chi.URLParam(r, "name")

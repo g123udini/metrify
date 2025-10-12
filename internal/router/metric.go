@@ -25,8 +25,6 @@ func update() {
 }
 
 func get() {
-	r.Get("/", handler.GetList)
-
 	r.Route("/value", func(r chi.Router) {
 		r.Get("/counter/{name}", handler.GetCounter)
 		r.Get("/gauge/{name}", handler.GetGauge)
