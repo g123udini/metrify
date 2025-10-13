@@ -69,19 +69,7 @@ func UpdateCounter(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func MetricTypeMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path
-		metricType, err := service.ExtractType(path)
-
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusNotFound)
-		}
-
-		if !service.ValidateMetricType(metricType) {
-			http.Error(w, "Invalid metric type", http.StatusBadRequest)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+func InvalidMetricHandler(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "invalid metric type (expect counter|gauge)", http.StatusBadRequest)
+	return
 }
