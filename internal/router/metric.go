@@ -21,7 +21,7 @@ func update() {
 		r.Post("/counter/{name}/{value}", handler.UpdateCounter)
 		r.Post("/gauge/{name}/{value}", handler.UpdateGauge)
 
-		r.Post("/{type}", handler.InvalidMetricHandler)
+		r.Post("/{type}/{name}/{value}", handler.InvalidMetricHandler)
 	})
 }
 
@@ -30,6 +30,6 @@ func get() {
 		r.Get("/counter/{name}", handler.GetCounter)
 		r.Get("/gauge/{name}", handler.GetGauge)
 
-		r.Get("/{type}", handler.InvalidMetricHandler)
+		r.Get("/{type}/{name}", handler.InvalidMetricHandler)
 	})
 }
