@@ -71,5 +71,4 @@ func UpdateCounter(w http.ResponseWriter, r *http.Request) {
 
 func InvalidMetricHandler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "invalid metric type (expect counter|gauge)", http.StatusBadRequest)
-	return
 }
