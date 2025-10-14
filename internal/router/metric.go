@@ -6,17 +6,17 @@ import (
 	"metrify/internal/handler"
 )
 
-var r = chi.NewRouter()
+func Metric(handler *handler.Handler) chi.Router {
+	r := chi.NewRouter()
 
-func Metric() chi.Router {
-	r.Use(middleware.AllowContentType(handler.TextUpdateContentType))
-	update()
-	get()
+	r.Use(middleware.AllowContentType(handler.UpdateContentType))
+	update(r, handler)
+	get(r, handler)
 
 	return r
 }
 
-func update() {
+func update(r chi.Router, handler *handler.Handler) {
 	r.Route("/update", func(r chi.Router) {
 		r.Post("/counter/{name}/{value}", handler.UpdateCounter)
 		r.Post("/gauge/{name}/{value}", handler.UpdateGauge)
@@ -25,7 +25,7 @@ func update() {
 	})
 }
 
-func get() {
+func get(r chi.Router, handler *handler.Handler) {
 	r.Route("/value", func(r chi.Router) {
 		r.Get("/counter/{name}", handler.GetCounter)
 		r.Get("/gauge/{name}", handler.GetGauge)

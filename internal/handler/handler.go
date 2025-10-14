@@ -7,14 +7,22 @@ import (
 	"strconv"
 )
 
-const TextUpdateContentType = "text/plain"
+type Handler struct {
+	ms                service.Storage
+	UpdateContentType string
+}
 
-var ms = service.NewMemStorage()
+func NewHandler(ms service.Storage) *Handler {
+	return &Handler{
+		ms:                ms,
+		UpdateContentType: "text/plain",
+	}
+}
 
-func GetGauge(w http.ResponseWriter, r *http.Request) {
+func (handler *Handler) GetGauge(w http.ResponseWriter, r *http.Request) {
 	metricName := chi.URLParam(r, "name")
 
-	val, ok := ms.GetGauge(metricName)
+	val, ok := handler.ms.GetGauge(metricName)
 
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
@@ -27,10 +35,10 @@ func GetGauge(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(data))
 }
 
-func GetCounter(w http.ResponseWriter, r *http.Request) {
+func (handler *Handler) GetCounter(w http.ResponseWriter, r *http.Request) {
 	metricName := chi.URLParam(r, "name")
 
-	val, ok := ms.GetCounter(metricName)
+	val, ok := handler.ms.GetCounter(metricName)
 
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
@@ -43,7 +51,7 @@ func GetCounter(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(data))
 }
 
-func UpdateGauge(w http.ResponseWriter, r *http.Request) {
+func (handler *Handler) UpdateGauge(w http.ResponseWriter, r *http.Request) {
 	metricName := chi.URLParam(r, "name")
 	metricValue, err := strconv.ParseFloat(chi.URLParam(r, "value"), 64)
 
@@ -52,10 +60,10 @@ func UpdateGauge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ms.UpdateGauge(metricName, metricValue)
+	handler.ms.UpdateGauge(metricName, metricValue)
 }
 
-func UpdateCounter(w http.ResponseWriter, r *http.Request) {
+func (handler *Handler) UpdateCounter(w http.ResponseWriter, r *http.Request) {
 	metricName := chi.URLParam(r, "name")
 	metricValue, err := strconv.ParseInt(chi.URLParam(r, "value"), 10, 64)
 
@@ -64,11 +72,11 @@ func UpdateCounter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ms.UpdateCounter(metricName, metricValue)
+	handler.ms.UpdateCounter(metricName, metricValue)
 
 	w.WriteHeader(http.StatusOK)
 }
 
-func InvalidMetricHandler(w http.ResponseWriter, r *http.Request) {
+func (handler *Handler) InvalidMetricHandler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "invalid metric type (expect counter|gauge)", http.StatusBadRequest)
 }

@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"log"
+	"metrify/internal/handler"
 	"metrify/internal/router"
+	"metrify/internal/service"
 	"net"
 	"net/http"
 )
@@ -23,5 +25,9 @@ func run() error {
 			flagRunAddr = ":" + p
 		}
 	}
-	return http.ListenAndServe(flagRunAddr, router.Metric())
+
+	ms := service.NewMemStorage()
+	h := handler.NewHandler(ms)
+
+	return http.ListenAndServe(flagRunAddr, router.Metric(h))
 }
