@@ -15,7 +15,7 @@ func main() {
 		gauges     map[string]float64
 		lastReport = time.Now()
 	)
-	parsesFlags()
+	parseFlags()
 	normalizedHost := normalizeHost(host)
 
 	for {
