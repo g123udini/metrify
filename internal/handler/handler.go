@@ -8,14 +8,14 @@ import (
 )
 
 type Handler struct {
-	ms                service.Storage
-	UpdateContentType string
+	ms                 service.Storage
+	AllowedContentType string
 }
 
 func NewHandler(ms service.Storage) *Handler {
 	return &Handler{
-		ms:                ms,
-		UpdateContentType: "text/plain",
+		ms:                 ms,
+		AllowedContentType: "text/plain",
 	}
 }
 

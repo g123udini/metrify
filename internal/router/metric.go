@@ -9,7 +9,7 @@ import (
 func Metric(handler *handler.Handler) chi.Router {
 	r := chi.NewRouter()
 
-	r.Use(middleware.AllowContentType(handler.UpdateContentType))
+	r.Use(middleware.AllowContentType(handler.AllowedContentType))
 	update(r, handler)
 	get(r, handler)
 

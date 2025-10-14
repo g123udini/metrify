@@ -4,6 +4,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"metrify/internal/handler"
+	"metrify/internal/service"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -22,39 +23,41 @@ func TestMetric(t *testing.T) {
 			url:      "/update/counter/PollInterval/22",
 			method:   http.MethodPost,
 			response: http.StatusOK,
-			content:  handler.TextUpdateContentType,
+			content:  "text/plain",
 		},
 		{
 			name:     "add gauge",
 			url:      "/update/gauge/Alloc/22.2",
 			method:   http.MethodPost,
 			response: http.StatusOK,
-			content:  handler.TextUpdateContentType,
+			content:  "text/plain",
 		},
 		{
 			name:     "wrong method",
 			url:      "/update/counter/PollInterval/22",
 			method:   http.MethodPut,
 			response: http.StatusMethodNotAllowed,
-			content:  handler.TextUpdateContentType,
+			content:  "text/plain",
 		},
 		{
 			name:     "not found",
 			url:      "/update/counter/22",
 			method:   http.MethodPost,
 			response: http.StatusNotFound,
-			content:  handler.TextUpdateContentType,
+			content:  "text/plain",
 		},
 		{
 			name:     "invalid request",
 			url:      "/update/counter/PollInterval/22.2",
 			method:   http.MethodPost,
 			response: http.StatusBadRequest,
-			content:  handler.TextUpdateContentType,
+			content:  "text/plain",
 		},
 	}
 
-	ts := httptest.NewServer(Metric())
+	ms := service.NewMemStorage()
+	h := handler.NewHandler(ms)
+	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()
 
 	for _, tt := range tests {
