@@ -16,16 +16,16 @@ func main() {
 		gauges     map[string]float64
 		lastReport = time.Now()
 	)
-	parseFlags()
-	normalizedHost := normalizeHost(host)
+	f := parseFlags()
+	normalizedHost := normalizeHost(f.Host)
 
 	for {
-		time.Sleep(time.Duration(pollInterval) * time.Second)
+		time.Sleep(time.Duration(f.PollInterval) * time.Second)
 
 		gauges = agent.CollectGauge()
 		pollCount++
 
-		if time.Since(lastReport) >= time.Duration(reportInterval)*time.Second {
+		if time.Since(lastReport) >= time.Duration(f.ReportInterval)*time.Second {
 			for key, metric := range gauges {
 				val := strconv.FormatFloat(metric, 'f', -1, 64)
 				if err := agent.UpdateMetric(normalizedHost, models.Gauge, key, val); err != nil {

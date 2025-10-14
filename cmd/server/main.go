@@ -11,14 +11,14 @@ import (
 )
 
 func main() {
-	parseFlags()
+	flagRunAddr := parseFlags()
 
-	if err := run(); err != nil {
+	if err := run(flagRunAddr); err != nil {
 		log.Fatal(err.Error())
 	}
 }
 
-func run() error {
+func run(flagRunAddr string) error {
 	fmt.Println("Running server on", flagRunAddr)
 	if h, p, err := net.SplitHostPort(flagRunAddr); err == nil {
 		if h == "localhost" || h == "" {
