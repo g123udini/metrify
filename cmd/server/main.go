@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"metrify/internal/router"
 	"net"
 	"net/http"
@@ -11,7 +12,7 @@ func main() {
 	parseFlags()
 
 	if err := run(); err != nil {
-		panic(err)
+		log.Fatalf(err.Error())
 	}
 }
 

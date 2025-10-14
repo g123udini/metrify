@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"metrify/internal/agent"
 	models "metrify/internal/model"
 	"net"
@@ -28,13 +29,17 @@ func main() {
 			for key, metric := range gauges {
 				val := strconv.FormatFloat(metric, 'f', -1, 64)
 				if err := agent.UpdateMetric(normalizedHost, models.Gauge, key, val); err != nil {
-					panic(err)
+					log.Printf("failed to update gauge %q: %v", key, err)
+					continue
 				}
 			}
 
 			val := strconv.FormatInt(pollCount, 10)
-			if err := agent.UpdateMetric(normalizedHost, models.Counter, "PollCount", val); err != nil {
-				panic(err)
+			counterName := "PollCount"
+
+			if err := agent.UpdateMetric(normalizedHost, models.Counter, counterName, val); err != nil {
+				log.Printf("failed to update counter %s: %v", counterName, err)
+				continue
 			}
 
 			lastReport = time.Now()
