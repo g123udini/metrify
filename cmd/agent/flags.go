@@ -7,7 +7,7 @@ import (
 )
 
 type flags struct {
-	Host           string `env:"HOST"`
+	Host           string `env:"ADDRESS"`
 	PollInterval   int    `env:"POLL_INTERVAL"`
 	ReportInterval int    `env:"REPORT_INTERVAL"`
 }
