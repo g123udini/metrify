@@ -31,12 +31,12 @@ func NewLoggingResponseWriter(w http.ResponseWriter) *LoggingResponseWriter {
 }
 
 func (lrw *LoggingResponseWriter) WriteHeader(code int) {
-	lrw.ResponseData.Status = code       // запоминаем статус
-	lrw.ResponseWriter.WriteHeader(code) // вызываем оригинальный метод
+	lrw.ResponseData.Status = code
+	lrw.ResponseWriter.WriteHeader(code)
 }
 
 func (lrw *LoggingResponseWriter) Write(b []byte) (int, error) {
-	size, err := lrw.ResponseWriter.Write(b) // записываем в реальный поток
-	lrw.ResponseData.Size += size            // считаем байты
+	size, err := lrw.ResponseWriter.Write(b)
+	lrw.ResponseData.Size += size
 	return size, err
 }
