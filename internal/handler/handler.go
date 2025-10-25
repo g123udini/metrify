@@ -2,9 +2,11 @@ package handler
 
 import (
 	"github.com/go-chi/chi/v5"
+	"metrify/internal/logger"
 	"metrify/internal/service"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type Handler struct {
@@ -79,4 +81,29 @@ func (handler *Handler) UpdateCounter(w http.ResponseWriter, r *http.Request) {
 
 func (handler *Handler) InvalidMetricHandler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "invalid metric type (expect counter|gauge)", http.StatusBadRequest)
+}
+
+func (handler *Handler) WithLogging(h http.Handler) http.Handler {
+	logFn := func(w http.ResponseWriter, r *http.Request) {
+		sugar := logger.NewLogger()
+		loggingWriter := logger.NewLoggingResponseWriter(w)
+		start := time.Now()
+		uri := r.RequestURI
+		method := r.Method
+
+		h.ServeHTTP(loggingWriter, r) // обслуживание оригинального запроса
+		end := time.Now()
+		duration := end.Sub(start)
+
+		sugar.Infoln(
+			"uri", uri,
+			"method", method,
+			"duration", duration,
+			"size", loggingWriter.ResponseData.Size,
+			"status", loggingWriter.ResponseData.Status,
+		)
+
+	}
+
+	return http.HandlerFunc(logFn)
 }
