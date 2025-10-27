@@ -60,6 +60,7 @@ func (handler *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	metric := models.Metrics{}
 	sugar := logger.NewLogger()
+	defer r.Body.Close()
 
 	if err := dec.Decode(&metric); err != nil {
 		sugar.Debug("Error decoding JSON", zap.Error(err))
@@ -95,6 +96,7 @@ func (handler *Handler) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	metric := models.Metrics{}
 	sugar := logger.NewLogger()
+	defer r.Body.Close()
 
 	if err := dec.Decode(&metric); err != nil {
 		sugar.Debug("Error decoding JSON", zap.Error(err))
