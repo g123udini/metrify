@@ -11,9 +11,9 @@ import (
 )
 
 func main() {
-	flagRunAddr := parseFlags()
+	f := parseFlags()
 
-	if err := run(flagRunAddr); err != nil {
+	if err := run(f.RunAddr); err != nil {
 		log.Fatal(err.Error())
 	}
 }

@@ -1,10 +1,15 @@
 package handler
 
 import (
+	"encoding/json"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
+	"metrify/internal/logger"
+	models "metrify/internal/model"
 	"metrify/internal/service"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type Handler struct {
@@ -51,6 +56,63 @@ func (handler *Handler) GetCounter(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(data))
 }
 
+func (handler *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
+	dec := json.NewDecoder(r.Body)
+	metric := models.Metrics{}
+	sugar := logger.NewLogger()
+	defer r.Body.Close()
+
+	if err := dec.Decode(&metric); err != nil {
+		sugar.Debug("Error decoding JSON", zap.Error(err))
+	}
+
+	if metric.MType == models.Gauge {
+		val, ok := handler.ms.GetGauge(metric.ID)
+
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		metric.Value = &val
+	} else {
+		val, ok := handler.ms.GetCounter(metric.ID)
+
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		metric.Delta = &val
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(metric); err != nil {
+		sugar.Error("Error encoding JSON", zap.Error(err))
+	}
+}
+
+func (handler *Handler) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
+	dec := json.NewDecoder(r.Body)
+	metric := models.Metrics{}
+	sugar := logger.NewLogger()
+	defer r.Body.Close()
+
+	if err := dec.Decode(&metric); err != nil {
+		sugar.Debug("Error decoding JSON", zap.Error(err))
+	}
+
+	if metric.MType == models.Gauge {
+		handler.ms.UpdateGauge(metric.ID, *metric.Value)
+	} else {
+		handler.ms.UpdateCounter(metric.ID, *metric.Delta)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status": "ok"}`))
+}
+
 func (handler *Handler) UpdateGauge(w http.ResponseWriter, r *http.Request) {
 	metricName := chi.URLParam(r, "name")
 	metricValue, err := strconv.ParseFloat(chi.URLParam(r, "value"), 64)
@@ -79,4 +141,29 @@ func (handler *Handler) UpdateCounter(w http.ResponseWriter, r *http.Request) {
 
 func (handler *Handler) InvalidMetricHandler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "invalid metric type (expect counter|gauge)", http.StatusBadRequest)
+}
+
+func (handler *Handler) WithLogging(h http.Handler) http.Handler {
+	logFn := func(w http.ResponseWriter, r *http.Request) {
+		sugar := logger.NewLogger()
+		loggingWriter := logger.NewLoggingResponseWriter(w)
+		start := time.Now()
+		uri := r.RequestURI
+		method := r.Method
+
+		h.ServeHTTP(loggingWriter, r) // обслуживание оригинального запроса
+		end := time.Now()
+		duration := end.Sub(start)
+
+		sugar.Infoln(
+			"uri", uri,
+			"method", method,
+			"duration", duration,
+			"size", loggingWriter.ResponseData.Size,
+			"status", loggingWriter.ResponseData.Status,
+		)
+
+	}
+
+	return http.HandlerFunc(logFn)
 }
