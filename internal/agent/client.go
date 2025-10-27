@@ -1,27 +1,26 @@
 package agent
 
 import (
+	"encoding/json"
 	"fmt"
 	"gopkg.in/resty.v1"
+	models "metrify/internal/model"
 )
 
-func UpdateMetric(host, metricType string, metricName string, value string) error {
-	path := "/update/{metricType}/{metricName}/{value}"
+func UpdateMetric(host string, metric models.Metrics) error {
+	path := "/update"
 	client := resty.New()
 	client.
-		SetHeader("Content-Type", "text/plain").
-		SetHostURL(fmt.Sprintf("http://%s", host)).
-		SetPathParams(map[string]string{
-			"metricName": metricName,
-			"metricType": metricType,
-			"value":      value,
-		})
+		SetHeader("Content-Type", "application/json").
+		SetHostURL(fmt.Sprintf("http://%s", host))
 
-	_, err := client.R().Post(path)
+	body, err := json.Marshal(metric)
 
 	if err != nil {
 		return err
 	}
+
+	client.R().SetBody(body).Post(path)
 
 	return nil
 }

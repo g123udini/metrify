@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"encoding/json"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 	"metrify/internal/logger"
+	models "metrify/internal/model"
 	"metrify/internal/service"
 	"net/http"
 	"strconv"
@@ -51,6 +54,57 @@ func (handler *Handler) GetCounter(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(data))
+}
+
+func (handler *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
+	dec := json.NewDecoder(r.Body)
+	metric := models.Metrics{}
+	sugar := logger.NewLogger()
+
+	if err := dec.Decode(&metric); err != nil {
+		sugar.Debug("Error decoding JSON", zap.Error(err))
+	}
+
+	if metric.MType == models.Gauge {
+		val, ok := handler.ms.GetGauge(metric.ID)
+
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		metric.Value = &val
+	} else {
+		val, ok := handler.ms.GetCounter(metric.ID)
+
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		metric.Delta = &val
+	}
+
+	if err := json.NewEncoder(w).Encode(metric); err != nil {
+		sugar.Error("Error encoding JSON", zap.Error(err))
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (handler *Handler) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
+	dec := json.NewDecoder(r.Body)
+	metric := models.Metrics{}
+	sugar := logger.NewLogger()
+
+	if err := dec.Decode(&metric); err != nil {
+		sugar.Debug("Error decoding JSON", zap.Error(err))
+	}
+
+	if metric.MType == models.Gauge {
+		handler.ms.UpdateGauge(metric.ID, *metric.Value)
+	} else {
+		handler.ms.UpdateCounter(metric.ID, *metric.Delta)
+	}
 }
 
 func (handler *Handler) UpdateGauge(w http.ResponseWriter, r *http.Request) {

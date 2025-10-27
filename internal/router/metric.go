@@ -9,7 +9,6 @@ import (
 func Metric(handler *handler.Handler) chi.Router {
 	r := chi.NewRouter()
 
-	r.Use(middleware.AllowContentType(handler.AllowedContentType))
 	r.Use(handler.WithLogging)
 	update(r, handler)
 	get(r, handler)
@@ -19,18 +18,28 @@ func Metric(handler *handler.Handler) chi.Router {
 
 func update(r chi.Router, handler *handler.Handler) {
 	r.Route("/update", func(r chi.Router) {
-		r.Post("/counter/{name}/{value}", handler.UpdateCounter)
-		r.Post("/gauge/{name}/{value}", handler.UpdateGauge)
+		r.With(middleware.AllowContentType("application/json")).
+			Post("/", handler.UpdateMetrics)
 
-		r.Post("/{type}/{name}/{value}", handler.InvalidMetricHandler)
+		r.With(middleware.AllowContentType(handler.AllowedContentType)).
+			Post("/counter/{name}/{value}", handler.UpdateCounter)
+		r.With(middleware.AllowContentType(handler.AllowedContentType)).
+			Post("/gauge/{name}/{value}", handler.UpdateGauge)
+		r.With(middleware.AllowContentType(handler.AllowedContentType)).
+			Post("/{type}/{name}/{value}", handler.InvalidMetricHandler)
 	})
 }
 
 func get(r chi.Router, handler *handler.Handler) {
 	r.Route("/value", func(r chi.Router) {
-		r.Get("/counter/{name}", handler.GetCounter)
-		r.Get("/gauge/{name}", handler.GetGauge)
+		r.With(middleware.AllowContentType("application/json")).
+			Post("/", handler.GetMetrics)
 
-		r.Get("/{type}/{name}", handler.InvalidMetricHandler)
+		r.With(middleware.AllowContentType(handler.AllowedContentType)).
+			Get("/counter/{name}", handler.GetCounter)
+		r.With(middleware.AllowContentType(handler.AllowedContentType)).
+			Get("/gauge/{name}", handler.GetGauge)
+		r.With(middleware.AllowContentType(handler.AllowedContentType)).
+			Get("/{type}/{name}", handler.InvalidMetricHandler)
 	})
 }
