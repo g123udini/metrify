@@ -180,9 +180,11 @@ func (handler *Handler) WithCompress(h http.Handler) http.Handler {
 
 		dr, err := compresser.NewCompressReader(r.Body)
 
-		if err == nil {
-			r.Body = dr
+		if err != nil {
+			http.Error(w, "invalid gzip", http.StatusBadRequest)
+			return
 		}
+		r.Body = dr
 
 		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			w = compresser.NewCompressWriter(w)
