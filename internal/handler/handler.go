@@ -4,11 +4,14 @@ import (
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+	"log"
+	"metrify/internal/compresser"
 	"metrify/internal/logger"
 	models "metrify/internal/model"
 	"metrify/internal/service"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -166,4 +169,28 @@ func (handler *Handler) WithLogging(h http.Handler) http.Handler {
 	}
 
 	return http.HandlerFunc(logFn)
+}
+
+func (handler *Handler) WithCompress(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		encoding := r.Header.Get("Accept-Encoding")
+
+		if !strings.Contains(encoding, "gzip") {
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		dr, err := compresser.NewCompressReader(r.Body)
+		r.Body = dr
+
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			log.Fatal(err)
+		}
+
+		cw := compresser.NewCompressWriter(w)
+		defer cw.Close()
+
+		h.ServeHTTP(cw, r)
+	})
 }

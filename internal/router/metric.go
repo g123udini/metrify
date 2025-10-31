@@ -10,6 +10,7 @@ func Metric(handler *handler.Handler) chi.Router {
 	r := chi.NewRouter()
 
 	r.Use(handler.WithLogging)
+	r.Use(handler.WithCompress)
 	update(r, handler)
 	get(r, handler)
 
