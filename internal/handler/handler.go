@@ -172,9 +172,7 @@ func (handler *Handler) WithLogging(h http.Handler) http.Handler {
 
 func (handler *Handler) WithCompress(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		encoding := r.Header.Get("Accept-Encoding")
-
-		if !strings.Contains(encoding, "gzip") {
+		if !strings.Contains(r.Header.Get("Content-Encoding"), "gzip") {
 			h.ServeHTTP(w, r)
 			return
 		}
@@ -185,7 +183,10 @@ func (handler *Handler) WithCompress(h http.Handler) http.Handler {
 			r.Body = dr
 		}
 
-		cw := compresser.NewCompressWriter(w)
-		h.ServeHTTP(cw, r)
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			w = compresser.NewCompressWriter(w)
+		}
+
+		h.ServeHTTP(w, r)
 	})
 }

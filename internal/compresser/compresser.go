@@ -35,8 +35,8 @@ func (c *CompressWriter) Close() error {
 }
 
 type CompressReader struct {
-	io.ReadCloser
-	*gzip.Reader
+	io.ReadCloser // исходный r.Body
+	gz            *gzip.Reader
 }
 
 func NewCompressReader(r io.ReadCloser) (*CompressReader, error) {
@@ -46,18 +46,19 @@ func NewCompressReader(r io.ReadCloser) (*CompressReader, error) {
 	}
 
 	return &CompressReader{
-		r,
-		zr,
+		ReadCloser: r,
+		gz:         zr,
 	}, nil
 }
 
-func (z CompressReader) Read(p []byte) (n int, err error) {
-	return z.Read(p)
+func (z *CompressReader) Read(p []byte) (int, error) {
+	return z.gz.Read(p)
 }
 
 func (z *CompressReader) Close() error {
-	if err := z.Close(); err != nil {
+	if err := z.gz.Close(); err != nil {
 		return err
 	}
-	return z.Close()
+
+	return z.ReadCloser.Close()
 }
