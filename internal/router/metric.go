@@ -12,6 +12,8 @@ func Metric(handler *handler.Handler) chi.Router {
 	r.Use(handler.WithLogging)
 	r.Use(handler.WithRequestCompress)
 	r.Use(handler.WithResponseCompress)
+
+	r.Get("/", handler.GetInfo)
 	update(r, handler)
 	get(r, handler)
 
