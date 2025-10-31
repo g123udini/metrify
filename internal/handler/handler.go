@@ -105,6 +105,11 @@ func (handler *Handler) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 		sugar.Debug("Error decoding JSON", zap.Error(err))
 	}
 
+	if metric.Value == nil && metric.Delta == nil {
+		http.Error(w, "Error JSON format", http.StatusBadRequest)
+		return
+	}
+
 	if metric.MType == models.Gauge {
 		handler.ms.UpdateGauge(metric.ID, *metric.Value)
 	} else {
@@ -171,7 +176,7 @@ func (handler *Handler) WithLogging(h http.Handler) http.Handler {
 	return http.HandlerFunc(logFn)
 }
 
-func (handler *Handler) WithCompress(h http.Handler) http.Handler {
+func (handler *Handler) WithRequestCompress(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.Header.Get("Content-Encoding"), "gzip") {
 			h.ServeHTTP(w, r)
@@ -185,10 +190,20 @@ func (handler *Handler) WithCompress(h http.Handler) http.Handler {
 			return
 		}
 		r.Body = dr
+		h.ServeHTTP(w, r)
+	})
+}
 
-		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-			w = compresser.NewCompressWriter(w)
+func (handler *Handler) WithResponseCompress(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			h.ServeHTTP(w, r)
+			return
 		}
+
+		cw := compresser.NewCompressWriter(w)
+		w = cw
+		defer cw.Close()
 
 		h.ServeHTTP(w, r)
 	})
