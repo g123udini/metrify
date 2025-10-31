@@ -89,6 +89,7 @@ func (handler *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(metric); err != nil {
 		sugar.Error("Error encoding JSON", zap.Error(err))
 	}
