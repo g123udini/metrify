@@ -183,7 +183,7 @@ func (handler *Handler) WithCompress(h http.Handler) http.Handler {
 			r.Body = dr
 		}
 
-		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			w = compresser.NewCompressWriter(w)
 		}
 
