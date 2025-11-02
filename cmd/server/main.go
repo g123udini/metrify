@@ -15,7 +15,7 @@ func main() {
 	f := parseFlags()
 	ms := service.NewMemStorage(f.FileStorePath)
 
-	if !f.Restore {
+	if f.Restore {
 		err := ms.ReadFromFile(f.FileStorePath)
 
 		if err != nil {

@@ -16,7 +16,7 @@ type flags struct {
 func parseFlags() *flags {
 	f := flags{
 		RunAddr:       ":8080",
-		StoreIterval:  10,
+		StoreIterval:  5,
 		FileStorePath: "./metrics.json",
 		Restore:       true,
 	}
