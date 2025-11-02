@@ -7,6 +7,7 @@ import (
 	"metrify/internal/service"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 )
 
@@ -55,8 +56,10 @@ func TestMetric(t *testing.T) {
 		},
 	}
 
-	ms := service.NewMemStorage()
-	h := handler.NewHandler(ms)
+	filepath := "./testdata/metric/test.json"
+	defer os.Remove(filepath)
+	ms := service.NewMemStorage(filepath)
+	h := handler.NewHandler(ms, true)
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()
 

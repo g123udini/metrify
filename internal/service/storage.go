@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"os"
 	"sync"
 )
 
@@ -9,12 +10,14 @@ type MemStorage struct {
 	gauges   map[string]float64
 	counters map[string]int64
 	mu       sync.RWMutex
+	filepath string
 }
 
-func NewMemStorage() *MemStorage {
+func NewMemStorage(filepath string) *MemStorage {
 	return &MemStorage{
 		gauges:   make(map[string]float64),
 		counters: make(map[string]int64),
+		filepath: filepath,
 	}
 }
 
@@ -23,6 +26,7 @@ type Storage interface {
 	GetGauge(key string) (float64, bool)
 	UpdateGauge(name string, value float64)
 	UpdateCounter(name string, delta int64)
+	FlushToFile() error
 }
 
 func (ms *MemStorage) GetCounter(key string) (int64, bool) {
@@ -72,4 +76,28 @@ func (ms *MemStorage) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(result)
+}
+
+func (ms *MemStorage) ReadFromFile(filepath string) error {
+	data, err := os.ReadFile(filepath)
+
+	if err != nil {
+		return err
+	}
+
+	json.Unmarshal(data, &ms)
+
+	return nil
+}
+
+func (ms *MemStorage) FlushToFile() error {
+	data, err := json.MarshalIndent(ms, "", " ")
+
+	if err != nil {
+		return err
+	}
+
+	os.WriteFile(ms.filepath, data, 0644)
+
+	return nil
 }

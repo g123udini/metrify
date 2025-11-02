@@ -15,14 +15,16 @@ import (
 )
 
 type Handler struct {
+	dumpToFile         bool
 	ms                 service.Storage
 	AllowedContentType string
 }
 
-func NewHandler(ms service.Storage) *Handler {
+func NewHandler(ms service.Storage, dump bool) *Handler {
 	return &Handler{
 		ms:                 ms,
 		AllowedContentType: "text/plain",
+		dumpToFile:         dump,
 	}
 }
 
@@ -114,6 +116,14 @@ func (handler *Handler) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 		handler.ms.UpdateGauge(metric.ID, *metric.Value)
 	} else {
 		handler.ms.UpdateCounter(metric.ID, *metric.Delta)
+	}
+
+	if handler.dumpToFile {
+		err := handler.ms.FlushToFile()
+
+		if err != nil {
+			sugar.Error("Error flushing to file", zap.Error(err))
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
