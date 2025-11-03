@@ -7,16 +7,16 @@ import (
 )
 
 type MemStorage struct {
-	Gauges   map[string]float64
-	Counters map[string]int64
+	gauges   map[string]float64
+	counters map[string]int64
 	mu       sync.RWMutex
 	filepath string
 }
 
 func NewMemStorage(filepath string) *MemStorage {
 	return &MemStorage{
-		Gauges:   make(map[string]float64),
-		Counters: make(map[string]int64),
+		gauges:   make(map[string]float64),
+		counters: make(map[string]int64),
 		filepath: filepath,
 	}
 }
@@ -33,7 +33,7 @@ func (ms *MemStorage) GetCounter(key string) (int64, bool) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 
-	val, ok := ms.Counters[key]
+	val, ok := ms.counters[key]
 
 	return val, ok
 }
@@ -42,7 +42,7 @@ func (ms *MemStorage) GetGauge(key string) (float64, bool) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 
-	val, ok := ms.Gauges[key]
+	val, ok := ms.gauges[key]
 
 	return val, ok
 }
@@ -51,28 +51,47 @@ func (ms *MemStorage) UpdateGauge(name string, value float64) {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
-	ms.Gauges[name] = value
+	ms.gauges[name] = value
 }
 
 func (ms *MemStorage) UpdateCounter(name string, delta int64) {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
-	ms.Counters[name] += delta
+	ms.counters[name] += delta
+}
+
+func (ms *MemStorage) UnmarshalJSON(data []byte) error {
+	type dto struct {
+		Gauges   map[string]float64 `json:"gauges"`
+		Counters map[string]int64   `json:"counters"`
+	}
+
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+
+	result := dto{}
+
+	err := json.Unmarshal(data, &result)
+
+	ms.gauges = result.Gauges
+	ms.counters = result.Counters
+
+	return err
 }
 
 func (ms *MemStorage) MarshalJSON() ([]byte, error) {
 	type dto struct {
-		Gauges   map[string]float64 `json:"Gauges"`
-		Counters map[string]int64   `json:"Counters"`
+		Gauges   map[string]float64 `json:"gauges"`
+		Counters map[string]int64   `json:"counters"`
 	}
 
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 
 	result := dto{
-		Gauges:   ms.Gauges,
-		Counters: ms.Counters,
+		Gauges:   ms.gauges,
+		Counters: ms.counters,
 	}
 
 	return json.Marshal(result)

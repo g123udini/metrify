@@ -38,13 +38,13 @@ func run(ms *service.MemStorage, f *flags) error {
 			f.RunAddr = ":" + p
 		}
 	}
-	h := handler.NewHandler(ms, f.StoreIterval == 0)
+	h := handler.NewHandler(ms, f.StoreInterval == 0)
 
 	return http.ListenAndServe(f.RunAddr, router.Metric(h))
 }
 
 func runMetricDumper(ms *service.MemStorage, f *flags) {
-	ticker := time.NewTicker(time.Duration(f.StoreIterval) * time.Second)
+	ticker := time.NewTicker(time.Duration(f.StoreInterval) * time.Second)
 	defer ticker.Stop()
 
 	for range ticker.C {
