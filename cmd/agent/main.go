@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"metrify/internal/agent"
+	"metrify/internal/service"
 	models "metrify/internal/model"
 	"net"
 	"time"
@@ -18,6 +18,8 @@ func main() {
 	f := parseFlags()
 	normalizedHost := normalizeHost(f.Host)
 	metric := models.Metrics{}
+	logger := service.NewLogger()
+	client := agent.NewClient(logger)
 
 	for {
 		time.Sleep(time.Duration(f.PollInterval) * time.Second)
@@ -31,20 +33,14 @@ func main() {
 				metric.Value = &val
 				metric.MType = models.Gauge
 
-				if err := agent.UpdateMetric(normalizedHost, metric); err != nil {
-					log.Printf("failed to update gauge %q: %v", key, err)
-					continue
-				}
+				client.UpdateMetric(normalizedHost, metric)
 			}
 
 			metric.ID = "PollCount"
 			metric.Delta = &pollCount
 			metric.MType = models.Counter
 
-			if err := agent.UpdateMetric(normalizedHost, metric); err != nil {
-				log.Printf("failed to update counter %s: %v", metric.ID, err)
-				continue
-			}
+			client.UpdateMetric(normalizedHost, metric)
 
 			lastReport = time.Now()
 		}

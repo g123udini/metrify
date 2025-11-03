@@ -3,24 +3,43 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"go.uber.org/zap"
 	"gopkg.in/resty.v1"
 	models "metrify/internal/model"
 )
 
-func UpdateMetric(host string, metric models.Metrics) error {
+type Client struct {
+	logger *zap.SugaredLogger
+	resty  *resty.Client
+}
+
+func NewClient(logger *zap.SugaredLogger) *Client {
+	return &Client{
+		logger: logger,
+		resty:  resty.New(),
+	}
+}
+
+func (client *Client) UpdateMetric(host string, metric models.Metrics) {
 	path := "/update"
-	client := resty.New()
 	client.
+		resty.
 		SetHeader("Content-Type", "application/json").
 		SetHostURL(fmt.Sprintf("http://%s", host))
 
 	body, err := json.Marshal(metric)
 
 	if err != nil {
-		return err
+		client.logger.Errorw("failed to marshal metric", "error", err)
 	}
 
-	client.R().SetBody(body).Post(path)
+	resp, err := client.resty.R().SetBody(body).Post(path)
 
-	return nil
+	if err != nil {
+		client.logger.Debug("failed to update metric: error", "host", host, "metric", metric, "error", err)
+	}
+
+	if resp.StatusCode() != 200 {
+		client.logger.Debug("failed to update metric: error", "host", host, "metric", metric, "status", resp.StatusCode())
+	}
 }
