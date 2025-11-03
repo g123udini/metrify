@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"go.uber.org/zap"
 	"log"
 	"metrify/internal/handler"
 	"metrify/internal/router"
@@ -14,6 +15,7 @@ import (
 func main() {
 	f := parseFlags()
 	ms := service.NewMemStorage(f.FileStorePath)
+	logger := service.NewLogger()
 
 	if f.Restore {
 		err := ms.ReadFromFile(f.FileStorePath)
@@ -24,21 +26,21 @@ func main() {
 	}
 
 	go runMetricDumper(ms, f)
-	err := run(ms, f)
+	err := run(ms, logger, f)
 
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 }
 
-func run(ms *service.MemStorage, f *flags) error {
+func run(ms *service.MemStorage, logger *zap.SugaredLogger, f *flags) error {
 	fmt.Println("Running server on", f.RunAddr)
 	if h, p, err := net.SplitHostPort(f.RunAddr); err == nil {
 		if h == "localhost" || h == "" {
 			f.RunAddr = ":" + p
 		}
 	}
-	h := handler.NewHandler(ms, f.StoreInterval == 0)
+	h := handler.NewHandler(ms, logger, f.StoreInterval == 0)
 
 	return http.ListenAndServe(f.RunAddr, router.Metric(h))
 }

@@ -5,7 +5,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"metrify/internal/compresser"
-	"metrify/internal/logger"
 	models "metrify/internal/model"
 	"metrify/internal/service"
 	"net/http"
@@ -15,14 +14,16 @@ import (
 )
 
 type Handler struct {
-	dumpToFile         bool
 	ms                 service.Storage
+	logger             *zap.SugaredLogger
+	dumpToFile         bool
 	AllowedContentType string
 }
 
-func NewHandler(ms service.Storage, dump bool) *Handler {
+func NewHandler(ms service.Storage, logger *zap.SugaredLogger, dump bool) *Handler {
 	return &Handler{
 		ms:                 ms,
+		logger:             logger,
 		AllowedContentType: "text/plain",
 		dumpToFile:         dump,
 	}
@@ -63,11 +64,10 @@ func (handler *Handler) GetCounter(w http.ResponseWriter, r *http.Request) {
 func (handler *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	metric := models.Metrics{}
-	sugar := logger.NewLogger()
 	defer r.Body.Close()
 
 	if err := dec.Decode(&metric); err != nil {
-		sugar.Debug("Error decoding JSON", zap.Error(err))
+		handler.logger.Debug("Error decoding JSON", zap.Error(err))
 	}
 
 	if metric.MType == models.Gauge {
@@ -93,14 +93,14 @@ func (handler *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(metric); err != nil {
-		sugar.Error("Error encoding JSON", zap.Error(err))
+		handler.logger.Error("Error encoding JSON", zap.Error(err))
 	}
 }
 
 func (handler *Handler) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	metric := models.Metrics{}
-	sugar := logger.NewLogger()
+	sugar := service.NewLogger()
 	defer r.Body.Close()
 
 	if err := dec.Decode(&metric); err != nil {
@@ -163,8 +163,7 @@ func (handler *Handler) InvalidMetricHandler(w http.ResponseWriter, r *http.Requ
 
 func (handler *Handler) WithLogging(h http.Handler) http.Handler {
 	logFn := func(w http.ResponseWriter, r *http.Request) {
-		sugar := logger.NewLogger()
-		loggingWriter := logger.NewLoggingResponseWriter(w)
+		loggingWriter := service.NewLoggingResponseWriter(w)
 		start := time.Now()
 		uri := r.RequestURI
 		method := r.Method
@@ -173,7 +172,7 @@ func (handler *Handler) WithLogging(h http.Handler) http.Handler {
 		end := time.Now()
 		duration := end.Sub(start)
 
-		sugar.Infoln(
+		handler.logger.Infoln(
 			"uri", uri,
 			"method", method,
 			"duration", duration,

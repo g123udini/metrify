@@ -59,7 +59,8 @@ func TestMetric(t *testing.T) {
 	filepath := "./testdata/metric/test.json"
 	defer os.Remove(filepath)
 	ms := service.NewMemStorage(filepath)
-	h := handler.NewHandler(ms, true)
+	logger := service.NewLogger()
+	h := handler.NewHandler(ms, logger, true)
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()
 
