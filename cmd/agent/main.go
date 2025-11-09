@@ -2,11 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"metrify/internal/agent"
+	"metrify/internal/service"
 	models "metrify/internal/model"
 	"net"
-	"strconv"
 	"time"
 )
 
@@ -18,6 +17,9 @@ func main() {
 	)
 	f := parseFlags()
 	normalizedHost := normalizeHost(f.Host)
+	metric := models.Metrics{}
+	logger := service.NewLogger()
+	client := agent.NewClient(logger)
 
 	for {
 		time.Sleep(time.Duration(f.PollInterval) * time.Second)
@@ -26,21 +28,19 @@ func main() {
 		pollCount++
 
 		if time.Since(lastReport) >= time.Duration(f.ReportInterval)*time.Second {
-			for key, metric := range gauges {
-				val := strconv.FormatFloat(metric, 'f', -1, 64)
-				if err := agent.UpdateMetric(normalizedHost, models.Gauge, key, val); err != nil {
-					log.Printf("failed to update gauge %q: %v", key, err)
-					continue
-				}
+			for key, val := range gauges {
+				metric.ID = key
+				metric.Value = &val
+				metric.MType = models.Gauge
+
+				client.UpdateMetric(normalizedHost, metric)
 			}
 
-			val := strconv.FormatInt(pollCount, 10)
-			counterName := "PollCount"
+			metric.ID = "PollCount"
+			metric.Delta = &pollCount
+			metric.MType = models.Counter
 
-			if err := agent.UpdateMetric(normalizedHost, models.Counter, counterName, val); err != nil {
-				log.Printf("failed to update counter %s: %v", counterName, err)
-				continue
-			}
+			client.UpdateMetric(normalizedHost, metric)
 
 			lastReport = time.Now()
 		}

@@ -1,21 +1,31 @@
 package handler
 
 import (
+	"encoding/json"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
+	"metrify/internal/compresser"
+	models "metrify/internal/model"
 	"metrify/internal/service"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 )
 
 type Handler struct {
 	ms                 service.Storage
+	logger             *zap.SugaredLogger
+	dumpToFile         bool
 	AllowedContentType string
 }
 
-func NewHandler(ms service.Storage) *Handler {
+func NewHandler(ms service.Storage, logger *zap.SugaredLogger, dump bool) *Handler {
 	return &Handler{
 		ms:                 ms,
+		logger:             logger,
 		AllowedContentType: "text/plain",
+		dumpToFile:         dump,
 	}
 }
 
@@ -51,6 +61,76 @@ func (handler *Handler) GetCounter(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(data))
 }
 
+func (handler *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
+	dec := json.NewDecoder(r.Body)
+	metric := models.Metrics{}
+	defer r.Body.Close()
+
+	if err := dec.Decode(&metric); err != nil {
+		handler.logger.Debug("Error decoding JSON", zap.Error(err))
+	}
+
+	if metric.MType == models.Gauge {
+		val, ok := handler.ms.GetGauge(metric.ID)
+
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		metric.Value = &val
+	} else {
+		val, ok := handler.ms.GetCounter(metric.ID)
+
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		metric.Delta = &val
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(metric); err != nil {
+		handler.logger.Error("Error encoding JSON", zap.Error(err))
+	}
+}
+
+func (handler *Handler) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
+	dec := json.NewDecoder(r.Body)
+	metric := models.Metrics{}
+	sugar := service.NewLogger()
+	defer r.Body.Close()
+
+	if err := dec.Decode(&metric); err != nil {
+		sugar.Debug("Error decoding JSON", zap.Error(err))
+	}
+
+	if metric.Value == nil && metric.Delta == nil {
+		http.Error(w, "Error JSON format", http.StatusBadRequest)
+		return
+	}
+
+	if metric.MType == models.Gauge {
+		handler.ms.UpdateGauge(metric.ID, *metric.Value)
+	} else {
+		handler.ms.UpdateCounter(metric.ID, *metric.Delta)
+	}
+
+	if handler.dumpToFile {
+		err := handler.ms.FlushToFile()
+
+		if err != nil {
+			sugar.Error("Error flushing to file", zap.Error(err))
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status": "ok"}`))
+}
+
 func (handler *Handler) UpdateGauge(w http.ResponseWriter, r *http.Request) {
 	metricName := chi.URLParam(r, "name")
 	metricValue, err := strconv.ParseFloat(chi.URLParam(r, "value"), 64)
@@ -79,4 +159,67 @@ func (handler *Handler) UpdateCounter(w http.ResponseWriter, r *http.Request) {
 
 func (handler *Handler) InvalidMetricHandler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "invalid metric type (expect counter|gauge)", http.StatusBadRequest)
+}
+
+func (handler *Handler) WithLogging(h http.Handler) http.Handler {
+	logFn := func(w http.ResponseWriter, r *http.Request) {
+		loggingWriter := service.NewLoggingResponseWriter(w)
+		start := time.Now()
+		uri := r.RequestURI
+		method := r.Method
+
+		h.ServeHTTP(loggingWriter, r) // обслуживание оригинального запроса
+		end := time.Now()
+		duration := end.Sub(start)
+
+		handler.logger.Infoln(
+			"uri", uri,
+			"method", method,
+			"duration", duration,
+			"size", loggingWriter.ResponseData.Size,
+			"status", loggingWriter.ResponseData.Status,
+		)
+
+	}
+
+	return http.HandlerFunc(logFn)
+}
+
+func (handler *Handler) WithRequestCompress(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.Header.Get("Content-Encoding"), "gzip") {
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		dr, err := compresser.NewCompressReader(r.Body)
+
+		if err != nil {
+			http.Error(w, "invalid gzip", http.StatusBadRequest)
+			return
+		}
+		r.Body = dr
+		h.ServeHTTP(w, r)
+	})
+}
+
+func (handler *Handler) WithResponseCompress(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		cw := compresser.NewCompressWriter(w)
+		w = cw
+		defer cw.Close()
+
+		h.ServeHTTP(w, r)
+	})
+}
+
+func (handler *Handler) GetInfo(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("OK"))
 }

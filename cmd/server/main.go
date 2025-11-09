@@ -2,32 +2,58 @@ package main
 
 import (
 	"fmt"
+	"go.uber.org/zap"
 	"log"
 	"metrify/internal/handler"
 	"metrify/internal/router"
 	"metrify/internal/service"
 	"net"
 	"net/http"
+	"time"
 )
 
 func main() {
-	flagRunAddr := parseFlags()
+	f := parseFlags()
+	ms := service.NewMemStorage(f.FileStorePath)
+	logger := service.NewLogger()
 
-	if err := run(flagRunAddr); err != nil {
+	if f.Restore {
+		err := ms.ReadFromFile(f.FileStorePath)
+
+		if err != nil {
+			log.Printf("could not read from file store: %v", err)
+		}
+	}
+
+	go runMetricDumper(ms, f)
+	err := run(ms, logger, f)
+
+	if err != nil {
 		log.Fatal(err.Error())
 	}
 }
 
-func run(flagRunAddr string) error {
-	fmt.Println("Running server on", flagRunAddr)
-	if h, p, err := net.SplitHostPort(flagRunAddr); err == nil {
+func run(ms *service.MemStorage, logger *zap.SugaredLogger, f *flags) error {
+	fmt.Println("Running server on", f.RunAddr)
+	if h, p, err := net.SplitHostPort(f.RunAddr); err == nil {
 		if h == "localhost" || h == "" {
-			flagRunAddr = ":" + p
+			f.RunAddr = ":" + p
 		}
 	}
+	h := handler.NewHandler(ms, logger, f.StoreInterval == 0)
 
-	ms := service.NewMemStorage()
-	h := handler.NewHandler(ms)
+	return http.ListenAndServe(f.RunAddr, router.Metric(h))
+}
 
-	return http.ListenAndServe(flagRunAddr, router.Metric(h))
+func runMetricDumper(ms *service.MemStorage, f *flags) {
+	ticker := time.NewTicker(time.Duration(f.StoreInterval) * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		err := ms.FlushToFile()
+
+		if err != nil {
+			log.Printf("cannot save metrics: %v", err)
+		}
+	}
 }
