@@ -13,8 +13,6 @@ func Metric(handler *handler.Handler) chi.Router {
 	r.Use(handler.WithRequestCompress)
 	r.Use(handler.WithResponseCompress)
 
-	r.Get("/", handler.GetInfo)
-	r.Get("/ping", handler.Ping)
 	update(r, handler)
 	get(r, handler)
 
@@ -36,6 +34,9 @@ func update(r chi.Router, handler *handler.Handler) {
 }
 
 func get(r chi.Router, handler *handler.Handler) {
+	r.Get("/", handler.GetInfo)
+	r.Get("/ping", handler.Ping)
+
 	r.Route("/value", func(r chi.Router) {
 		r.With(middleware.AllowContentType("application/json")).
 			Post("/", handler.GetMetrics)

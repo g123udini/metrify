@@ -43,7 +43,7 @@ func run(ms *service.MemStorage, logger *zap.SugaredLogger, f *flags) error {
 		}
 	}
 
-	db := initDb(f.Dsn)
+	db := initDB(f.Dsn)
 	h := handler.NewHandler(ms, logger, db, f.StoreInterval == 0)
 
 	return http.ListenAndServe(f.RunAddr, router.Metric(h))
@@ -62,7 +62,7 @@ func runMetricDumper(ms *service.MemStorage, f *flags) {
 	}
 }
 
-func initDb(DSN string) *sql.DB {
+func initDB(DSN string) *sql.DB {
 	db, err := sql.Open("pgx", DSN)
 
 	if err != nil {
