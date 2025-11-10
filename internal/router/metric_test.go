@@ -1,6 +1,7 @@
 package router
 
 import (
+	"database/sql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"metrify/internal/handler"
@@ -57,10 +58,13 @@ func TestMetric(t *testing.T) {
 	}
 
 	filepath := "./testdata/metric/test.json"
+	dsn := "postgres://dev:dev@localhost:5432/dev"
+	db, _ := sql.Open("pgx", dsn)
 	defer os.Remove(filepath)
 	ms := service.NewMemStorage(filepath)
 	logger := service.NewLogger()
-	h := handler.NewHandler(ms, logger, true)
+
+	h := handler.NewHandler(ms, logger, db, true)
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()
 

@@ -27,9 +27,9 @@ func NewHandler(ms service.Storage, logger *zap.SugaredLogger, db *sql.DB, dump 
 	return &Handler{
 		ms:                 ms,
 		logger:             logger,
-		AllowedContentType: "text/plain",
-		dumpToFile:         dump,
 		db:                 db,
+		dumpToFile:         dump,
+		AllowedContentType: "text/plain",
 	}
 }
 
