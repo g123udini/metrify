@@ -1,7 +1,9 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 	"log"
 	"metrify/internal/handler"
@@ -40,7 +42,9 @@ func run(ms *service.MemStorage, logger *zap.SugaredLogger, f *flags) error {
 			f.RunAddr = ":" + p
 		}
 	}
-	h := handler.NewHandler(ms, logger, f.StoreInterval == 0)
+
+	db := initDb(f.Dsn)
+	h := handler.NewHandler(ms, logger, db, f.StoreInterval == 0)
 
 	return http.ListenAndServe(f.RunAddr, router.Metric(h))
 }
@@ -56,4 +60,14 @@ func runMetricDumper(ms *service.MemStorage, f *flags) {
 			log.Printf("cannot save metrics: %v", err)
 		}
 	}
+}
+
+func initDb(DSN string) *sql.DB {
+	db, err := sql.Open("pgx", DSN)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return db
 }
