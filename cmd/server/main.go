@@ -2,7 +2,11 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 	"log"
@@ -73,5 +77,29 @@ func initDB(DSN string) *sql.DB {
 		log.Fatal(err)
 	}
 
+	initMigrations(db)
+
 	return db
+}
+
+func initMigrations(db *sql.DB) {
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	if err != nil {
+		log.Fatal("postgres driver error: ", err)
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://migrations",
+		"postgres",
+		driver,
+	)
+	if err != nil {
+		log.Fatal("migrate init error: ", err)
+	}
+	defer m.Close()
+
+	err = m.Up()
+	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		log.Fatalf("migrate up error: %v", err)
+	}
 }

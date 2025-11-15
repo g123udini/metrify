@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS created_at_idx;
+DROP TABLE IF EXISTS metrics;
