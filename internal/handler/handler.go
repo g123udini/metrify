@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -16,16 +18,18 @@ import (
 type Handler struct {
 	ms                 service.Storage
 	logger             *zap.SugaredLogger
+	db                 *sql.DB
 	dumpToFile         bool
 	AllowedContentType string
 }
 
-func NewHandler(ms service.Storage, logger *zap.SugaredLogger, dump bool) *Handler {
+func NewHandler(ms service.Storage, logger *zap.SugaredLogger, db *sql.DB, dump bool) *Handler {
 	return &Handler{
 		ms:                 ms,
 		logger:             logger,
-		AllowedContentType: "text/plain",
+		db:                 db,
 		dumpToFile:         dump,
+		AllowedContentType: "text/plain",
 	}
 }
 
@@ -222,4 +226,20 @@ func (handler *Handler) GetInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
+}
+
+func (handler *Handler) Ping(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if handler.db != nil {
+		if err := handler.db.PingContext(ctx); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status": "ok"}`))
 }

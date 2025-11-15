@@ -1,0 +1,36 @@
+CREATE TABLE IF NOT EXISTS metrics (
+                               id               BIGSERIAL PRIMARY KEY,
+                               created_at       TIMESTAMP NOT NULL DEFAULT NOW(),
+
+                               Alloc            DOUBLE PRECISION,
+                               BuckHashSys      DOUBLE PRECISION,
+                               Frees            DOUBLE PRECISION,
+                               GCCPUFraction    DOUBLE PRECISION,
+                               GCSys            DOUBLE PRECISION,
+                               HeapAlloc        DOUBLE PRECISION,
+                               HeapIdle         DOUBLE PRECISION,
+                               HeapInuse        DOUBLE PRECISION,
+                               HeapObjects      DOUBLE PRECISION,
+                               HeapReleased     DOUBLE PRECISION,
+                               HeapSys          DOUBLE PRECISION,
+                               LastGC           DOUBLE PRECISION,
+                               Lookups          DOUBLE PRECISION,
+                               MCacheInuse      DOUBLE PRECISION,
+                               MCacheSys        DOUBLE PRECISION,
+                               MSpanInuse       DOUBLE PRECISION,
+                               MSpanSys         DOUBLE PRECISION,
+                               Mallocs          DOUBLE PRECISION,
+                               NextGC           DOUBLE PRECISION,
+                               NumForcedGC      DOUBLE PRECISION,
+                               NumGC            DOUBLE PRECISION,
+                               OtherSys         DOUBLE PRECISION,
+                               PauseTotalNs     DOUBLE PRECISION,
+                               RandomValue      DOUBLE PRECISION,
+                               StackInuse       DOUBLE PRECISION,
+                               StackSys         DOUBLE PRECISION,
+                               Sys              DOUBLE PRECISION,
+                               TotalAlloc       DOUBLE PRECISION,
+                               PollCount        BIGINT
+);
+
+CREATE INDEX IF NOT EXISTS created_at_idx ON metrics(created_at);-- migrations/000001_create_metrics_table.up.sql
