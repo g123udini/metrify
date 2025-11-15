@@ -63,6 +63,10 @@ func runMetricDumper(ms *service.MemStorage, f *flags) {
 }
 
 func initDB(DSN string) *sql.DB {
+	if DSN == "" {
+		return nil
+	}
+
 	db, err := sql.Open("pgx", DSN)
 
 	if err != nil {
