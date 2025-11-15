@@ -229,19 +229,14 @@ func (handler *Handler) GetInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (handler *Handler) Ping(w http.ResponseWriter, r *http.Request) {
-	if handler.db == nil {
-		http.Error(w, "No db Initiated.", http.StatusInternalServerError)
-
-		return
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	if err := handler.db.PingContext(ctx); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-
-		return
+	if handler.db != nil {
+		if err := handler.db.PingContext(ctx); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
