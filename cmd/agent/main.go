@@ -47,8 +47,9 @@ func main() {
 			client.UpdateMetric(metric)
 
 			lastReport = time.Now()
-			client.UpdateMetrics(metricBatch)
 		}
+
+		client.UpdateMetrics(metricBatch)
 	}
 }
 
