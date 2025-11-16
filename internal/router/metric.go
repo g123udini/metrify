@@ -20,6 +20,11 @@ func Metric(handler *handler.Handler) chi.Router {
 }
 
 func update(r chi.Router, handler *handler.Handler) {
+	r.Route("/updates", func(r chi.Router) {
+		r.With(middleware.AllowContentType("application/json")).
+			Post("/", handler.UpdateMetricsBatch)
+	})
+
 	r.Route("/update", func(r chi.Router) {
 		r.With(middleware.AllowContentType("application/json")).
 			Post("/", handler.UpdateMetrics)

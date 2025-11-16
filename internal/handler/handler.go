@@ -104,11 +104,10 @@ func (handler *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 func (handler *Handler) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	metric := models.Metrics{}
-	sugar := service.NewLogger()
 	defer r.Body.Close()
 
 	if err := dec.Decode(&metric); err != nil {
-		sugar.Debug("Error decoding JSON", zap.Error(err))
+		handler.logger.Debug("Error decoding JSON", zap.Error(err))
 	}
 
 	if metric.Value == nil && metric.Delta == nil {
@@ -126,8 +125,28 @@ func (handler *Handler) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 		err := handler.ms.FlushToFile()
 
 		if err != nil {
-			sugar.Error("Error flushing to file", zap.Error(err))
+			handler.logger.Error("Error flushing to file", zap.Error(err))
 		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status": "ok"}`))
+}
+
+func (handler *Handler) UpdateMetricsBatch(w http.ResponseWriter, r *http.Request) {
+	dec := json.NewDecoder(r.Body)
+	var metrics []models.Metrics
+	defer r.Body.Close()
+
+	if err := dec.Decode(&metrics); err != nil {
+		handler.logger.Debug("Error decoding JSON", zap.Error(err))
+	}
+
+	err := handler.ms.UpdateMetricsBatch(metrics)
+
+	if err != nil {
+		handler.logger.Error("Error updating metrics batch", zap.Error(err))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
