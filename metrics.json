@@ -9,7 +9,7 @@
   "HeapIdle": 4079616,
   "HeapInuse": 3620864,
   "HeapObjects": 4262,
-  "HeapReleased": 2850816,
+  "HeapReleased": 11,
   "HeapSys": 7700480,
   "LastGC": 1763290888275448000,
   "Lookups": 0,
@@ -30,6 +30,7 @@
   "TotalAlloc": 17150128
  },
  "counters": {
+  "HeapReleased": 11,
   "PollCount": 560
  }
 }

@@ -83,9 +83,6 @@ func (ms *MemStorage) UpdateCounter(name string, delta int64) error {
 }
 
 func (ms *MemStorage) UpdateMetricsBatch(metrics []models.Metrics) error {
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
-
 	for _, metric := range metrics {
 		if metric.MType == models.Gauge {
 			err := ms.UpdateGauge(metric.ID, *metric.Value)
