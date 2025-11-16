@@ -30,7 +30,6 @@ type Storage interface {
 	UpdateGauge(name string, value float64) error
 	UpdateCounter(name string, delta int64) error
 	FlushToFile() error
-	FlushToDB() error
 }
 
 func (ms *MemStorage) GetCounter(key string) (int64, bool) {
@@ -135,24 +134,4 @@ func (ms *MemStorage) FlushToFile() error {
 	}
 
 	return os.WriteFile(ms.filepath, data, 0644)
-}
-
-func (ms *MemStorage) FlushToDB() error {
-	if ms.db == nil {
-		return nil
-	}
-
-	for name, value := range ms.gauges {
-		_, err := ms.db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, value)
-
-		return err
-	}
-
-	for name, value := range ms.counters {
-		_, err := ms.db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, value)
-
-		return err
-	}
-
-	return nil
 }
