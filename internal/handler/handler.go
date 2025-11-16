@@ -143,10 +143,20 @@ func (handler *Handler) UpdateMetricsBatch(w http.ResponseWriter, r *http.Reques
 		handler.logger.Debug("Error decoding JSON", zap.Error(err))
 	}
 
-	err := handler.ms.UpdateMetricsBatch(metrics)
+	for _, metric := range metrics {
+		if metric.MType == models.Gauge {
+			err := handler.ms.UpdateGauge(metric.ID, *metric.Value)
 
-	if err != nil {
-		handler.logger.Error("Error updating metrics batch", zap.Error(err))
+			if err != nil {
+				handler.logger.Error("Error updating metrics batch", zap.Error(err))
+			}
+		} else {
+			err := handler.ms.UpdateCounter(metric.ID, *metric.Delta)
+
+			if err != nil {
+				handler.logger.Error("Error updating metrics batch", zap.Error(err))
+			}
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

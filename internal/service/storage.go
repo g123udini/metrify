@@ -3,7 +3,6 @@ package service
 import (
 	"database/sql"
 	"encoding/json"
-	models "metrify/internal/model"
 	"os"
 	"sync"
 )
@@ -31,7 +30,6 @@ type Storage interface {
 	UpdateGauge(name string, value float64) error
 	UpdateCounter(name string, delta int64) error
 	FlushToFile() error
-	UpdateMetricsBatch([]models.Metrics) error
 }
 
 func (ms *MemStorage) GetCounter(key string) (int64, bool) {
@@ -77,26 +75,6 @@ func (ms *MemStorage) UpdateCounter(name string, delta int64) error {
 		_, err := ms.db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, delta)
 
 		return err
-	}
-
-	return nil
-}
-
-func (ms *MemStorage) UpdateMetricsBatch(metrics []models.Metrics) error {
-	for _, metric := range metrics {
-		if metric.MType == models.Gauge {
-			err := ms.UpdateGauge(metric.ID, *metric.Value)
-
-			if err != nil {
-				return err
-			}
-		} else {
-			err := ms.UpdateCounter(metric.ID, *metric.Delta)
-
-			if err != nil {
-				return err
-			}
-		}
 	}
 
 	return nil
