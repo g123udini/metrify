@@ -27,15 +27,10 @@ func NewMemStorage(filepath string, db *sql.DB) *MemStorage {
 type Storage interface {
 	GetCounter(key string) (int64, bool)
 	GetGauge(key string) (float64, bool)
-	UpdateGauge(name string, value float64)
-	UpdateCounter(name string, delta int64)
+	UpdateGauge(name string, value float64) error
+	UpdateCounter(name string, delta int64) error
 	FlushToFile() error
 	FlushToDB() error
-	IsDBInitialized() bool
-}
-
-func (ms *MemStorage) IsDBInitialized() bool {
-	return ms.db == nil
 }
 
 func (ms *MemStorage) GetCounter(key string) (int64, bool) {
@@ -56,18 +51,34 @@ func (ms *MemStorage) GetGauge(key string) (float64, bool) {
 	return val, ok
 }
 
-func (ms *MemStorage) UpdateGauge(name string, value float64) {
+func (ms *MemStorage) UpdateGauge(name string, value float64) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
 	ms.gauges[name] = value
+
+	if ms.db != nil {
+		_, err := ms.db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, value)
+
+		return err
+	}
+
+	return nil
 }
 
-func (ms *MemStorage) UpdateCounter(name string, delta int64) {
+func (ms *MemStorage) UpdateCounter(name string, delta int64) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
 	ms.counters[name] += delta
+
+	if ms.db != nil {
+		_, err := ms.db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, delta)
+
+		return err
+	}
+
+	return nil
 }
 
 func (ms *MemStorage) UnmarshalJSON(data []byte) error {
