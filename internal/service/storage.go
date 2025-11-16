@@ -119,10 +119,6 @@ func (ms *MemStorage) FlushToFile() error {
 }
 
 func (ms *MemStorage) FlushToDB(db *sql.DB) error {
-	if db == nil {
-		return nil
-	}
-
 	for name, value := range ms.gauges {
 		_, err := db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, value)
 
