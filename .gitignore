@@ -27,4 +27,4 @@ vendor/
 # Test for learning
 internal/learn
 /cmd/learn/
-.metrics.json
+metrics.json
