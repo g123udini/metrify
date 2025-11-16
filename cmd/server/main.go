@@ -65,7 +65,7 @@ func runMetricDumper(ms *service.MemStorage, f *flags) {
 }
 
 func initDB(DSN string) *sql.DB {
-	if isValidPostgresDSN(DSN) {
+	if !isValidPostgresDSN(DSN) {
 		return nil
 	}
 
