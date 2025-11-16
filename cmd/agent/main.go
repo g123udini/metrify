@@ -34,7 +34,7 @@ func main() {
 				metric.Value = &val
 				metric.MType = models.Gauge
 
-				client.UpdateMetric(metric)
+				//client.UpdateMetric(metric)
 
 				metricBatch = append(metricBatch, metric)
 			}
@@ -43,8 +43,8 @@ func main() {
 			metric.Delta = &pollCount
 			metric.MType = models.Counter
 
-			client.UpdateMetric(metric)
 			metricBatch = append(metricBatch, metric)
+			//client.UpdateMetric(metric)
 
 			lastReport = time.Now()
 			client.UpdateMetrics(metricBatch)
