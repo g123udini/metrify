@@ -118,7 +118,7 @@ func (ms *MemStorage) FlushToFile() error {
 	return os.WriteFile(ms.filepath, data, 0644)
 }
 
-func (ms *MemStorage) FlushToDb(db *sql.DB) error {
+func (ms *MemStorage) FlushToDB(db *sql.DB) error {
 	if db == nil {
 		return nil
 	}

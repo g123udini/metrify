@@ -61,7 +61,7 @@ func runMetricDumper(ms *service.MemStorage, db *sql.DB, f *flags) {
 
 	for range ticker.C {
 		err := ms.FlushToFile()
-		err = ms.FlushToDb(db)
+		err = ms.FlushToDB(db)
 
 		if err != nil {
 			log.Printf("cannot save metrics: %v", err)
