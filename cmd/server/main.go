@@ -98,7 +98,6 @@ func initMigrations(db *sql.DB) {
 	if err != nil {
 		log.Fatal("migrate init error: ", err)
 	}
-	defer m.Close()
 
 	err = m.Up()
 	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
