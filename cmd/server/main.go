@@ -11,6 +11,8 @@ import (
 	"metrify/internal/service"
 	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -63,7 +65,7 @@ func runMetricDumper(ms *service.MemStorage, f *flags) {
 }
 
 func initDB(DSN string) *sql.DB {
-	if DSN == "" {
+	if isValidPostgresDSN(DSN) {
 		return nil
 	}
 
@@ -74,4 +76,30 @@ func initDB(DSN string) *sql.DB {
 	}
 
 	return db
+}
+
+func isValidPostgresDSN(dsn string) bool {
+	dsn = strings.TrimSpace(dsn)
+	if dsn == "" {
+		return false
+	}
+
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return false
+	}
+
+	if u.Scheme != "postgres" && u.Scheme != "postgresql" {
+		return false
+	}
+
+	if u.Host == "" {
+		return false
+	}
+
+	if u.Path == "" || u.Path == "/" {
+		return false
+	}
+
+	return true
 }
