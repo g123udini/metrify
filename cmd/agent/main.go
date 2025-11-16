@@ -43,10 +43,11 @@ func main() {
 			metric.Delta = &pollCount
 			metric.MType = models.Counter
 
+			client.UpdateMetric(metric)
 			metricBatch = append(metricBatch, metric)
-			client.UpdateMetrics(metricBatch)
 
 			lastReport = time.Now()
+			client.UpdateMetrics(metricBatch)
 		}
 	}
 }
