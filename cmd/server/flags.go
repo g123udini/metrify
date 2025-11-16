@@ -20,7 +20,7 @@ func parseFlags() *flags {
 		StoreInterval: 5,
 		FileStorePath: "./metrics.json",
 		Restore:       true,
-		Dsn:           "",
+		Dsn:           "postgres://dev:dev@localhost:5432/dev",
 	}
 
 	flag.StringVar(&f.RunAddr, "a", f.RunAddr, "address and port to run server")

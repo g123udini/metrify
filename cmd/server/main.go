@@ -24,6 +24,7 @@ func main() {
 	f := parseFlags()
 	ms := service.NewMemStorage(f.FileStorePath)
 	logger := service.NewLogger()
+	db := initDB(f.Dsn)
 
 	if f.Restore {
 		err := ms.ReadFromFile(f.FileStorePath)
@@ -33,15 +34,15 @@ func main() {
 		}
 	}
 
-	go runMetricDumper(ms, f)
-	err := run(ms, logger, f)
+	go runMetricDumper(ms, db, f)
+	err := run(ms, db, logger, f)
 
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 }
 
-func run(ms *service.MemStorage, logger *zap.SugaredLogger, f *flags) error {
+func run(ms *service.MemStorage, db *sql.DB, logger *zap.SugaredLogger, f *flags) error {
 	fmt.Println("Running server on", f.RunAddr)
 	if h, p, err := net.SplitHostPort(f.RunAddr); err == nil {
 		if h == "localhost" || h == "" {
@@ -49,18 +50,18 @@ func run(ms *service.MemStorage, logger *zap.SugaredLogger, f *flags) error {
 		}
 	}
 
-	db := initDB(f.Dsn)
 	h := handler.NewHandler(ms, logger, db, f.StoreInterval == 0)
 
 	return http.ListenAndServe(f.RunAddr, router.Metric(h))
 }
 
-func runMetricDumper(ms *service.MemStorage, f *flags) {
+func runMetricDumper(ms *service.MemStorage, db *sql.DB, f *flags) {
 	ticker := time.NewTicker(time.Duration(f.StoreInterval) * time.Second)
 	defer ticker.Stop()
 
 	for range ticker.C {
 		err := ms.FlushToFile()
+		err = ms.FlushToDb(db)
 
 		if err != nil {
 			log.Printf("cannot save metrics: %v", err)

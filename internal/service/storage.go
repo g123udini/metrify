@@ -1,6 +1,7 @@
 package service
 
 import (
+	"database/sql"
 	"encoding/json"
 	"os"
 	"sync"
@@ -115,4 +116,24 @@ func (ms *MemStorage) FlushToFile() error {
 	}
 
 	return os.WriteFile(ms.filepath, data, 0644)
+}
+
+func (ms *MemStorage) FlushToDb(db *sql.DB) error {
+	if db == nil {
+		return nil
+	}
+
+	for name, value := range ms.gauges {
+		_, err := db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, value)
+
+		return err
+	}
+
+	for name, value := range ms.counters {
+		_, err := db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, value)
+
+		return err
+	}
+
+	return nil
 }
