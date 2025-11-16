@@ -12,13 +12,15 @@ type MemStorage struct {
 	counters map[string]int64
 	mu       sync.RWMutex
 	filepath string
+	db       *sql.DB
 }
 
-func NewMemStorage(filepath string) *MemStorage {
+func NewMemStorage(filepath string, db *sql.DB) *MemStorage {
 	return &MemStorage{
 		gauges:   make(map[string]float64),
 		counters: make(map[string]int64),
 		filepath: filepath,
+		db:       db,
 	}
 }
 
@@ -28,6 +30,12 @@ type Storage interface {
 	UpdateGauge(name string, value float64)
 	UpdateCounter(name string, delta int64)
 	FlushToFile() error
+	FlushToDB() error
+	IsDBInitialized() bool
+}
+
+func (ms *MemStorage) IsDBInitialized() bool {
+	return ms.db == nil
 }
 
 func (ms *MemStorage) GetCounter(key string) (int64, bool) {
@@ -118,15 +126,19 @@ func (ms *MemStorage) FlushToFile() error {
 	return os.WriteFile(ms.filepath, data, 0644)
 }
 
-func (ms *MemStorage) FlushToDB(db *sql.DB) error {
+func (ms *MemStorage) FlushToDB() error {
+	if ms.db == nil {
+		return nil
+	}
+
 	for name, value := range ms.gauges {
-		_, err := db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, value)
+		_, err := ms.db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, value)
 
 		return err
 	}
 
 	for name, value := range ms.counters {
-		_, err := db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, value)
+		_, err := ms.db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, value)
 
 		return err
 	}

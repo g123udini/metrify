@@ -61,7 +61,7 @@ func TestMetric(t *testing.T) {
 	dsn := "postgres://dev:dev@localhost:5432/dev"
 	db, _ := sql.Open("pgx", dsn)
 	defer os.Remove(filepath)
-	ms := service.NewMemStorage(filepath)
+	ms := service.NewMemStorage(filepath, db)
 	logger := service.NewLogger()
 
 	h := handler.NewHandler(ms, logger, db, true)

@@ -130,6 +130,14 @@ func (handler *Handler) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if handler.ms.IsDBInitialized() {
+		err := handler.ms.FlushToDB()
+
+		if err != nil {
+			sugar.Error("Error flushing to database", zap.Error(err))
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status": "ok"}`))

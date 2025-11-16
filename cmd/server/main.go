@@ -22,9 +22,9 @@ import (
 
 func main() {
 	f := parseFlags()
-	ms := service.NewMemStorage(f.FileStorePath)
-	logger := service.NewLogger()
 	db := initDB(f.Dsn)
+	ms := service.NewMemStorage(f.FileStorePath, db)
+	logger := service.NewLogger()
 
 	if f.Restore {
 		err := ms.ReadFromFile(f.FileStorePath)
@@ -61,10 +61,6 @@ func runMetricDumper(ms *service.MemStorage, db *sql.DB, f *flags) {
 
 	for range ticker.C {
 		err := ms.FlushToFile()
-
-		if db != nil {
-			err = ms.FlushToDB(db)
-		}
 
 		if err != nil {
 			log.Printf("cannot save metrics: %v", err)
