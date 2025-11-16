@@ -87,11 +87,15 @@ func (ms *MemStorage) UpdateMetricsBatch(metrics []models.Metrics) error {
 		if metric.MType == models.Gauge {
 			err := ms.UpdateGauge(metric.ID, *metric.Value)
 
-			return err
+			if err != nil {
+				return err
+			}
 		} else {
 			err := ms.UpdateCounter(metric.ID, *metric.Delta)
 
-			return err
+			if err != nil {
+				return err
+			}
 		}
 	}
 
