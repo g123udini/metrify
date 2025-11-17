@@ -64,7 +64,7 @@ func main() {
 		}
 
 		err := service.Retry(maxRetry, 2*time.Second, func() error {
-			return client.UpdateMetric(metric)
+			return client.UpdateMetrics(metricBatch)
 		})
 
 		if err != nil {
