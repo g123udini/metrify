@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"metrify/internal/compresser"
@@ -137,26 +138,32 @@ func (handler *Handler) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 func (handler *Handler) UpdateMetricsBatch(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	var metrics []models.Metrics
+	var err error = nil
 	defer r.Body.Close()
 
-	if err := dec.Decode(&metrics); err != nil {
+	if err = dec.Decode(&metrics); err != nil {
 		handler.logger.Debug("Error decoding JSON", zap.Error(err))
 	}
 
 	for _, metric := range metrics {
 		if metric.MType == models.Gauge {
-			err := handler.ms.UpdateGauge(metric.ID, *metric.Value)
+			err = handler.ms.UpdateGauge(metric.ID, *metric.Value)
 
 			if err != nil {
-				handler.logger.Error("Error updating metrics batch", zap.Error(err))
+				err = errors.Join(err)
 			}
 		} else {
-			err := handler.ms.UpdateCounter(metric.ID, *metric.Delta)
+			err = handler.ms.UpdateCounter(metric.ID, *metric.Delta)
 
 			if err != nil {
-				handler.logger.Error("Error updating metrics batch", zap.Error(err))
+				err = errors.Join(err)
 			}
 		}
+	}
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
