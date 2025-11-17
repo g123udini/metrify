@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/resty.v1"
 	models "metrify/internal/model"
+	"net/http"
 )
 
 type Client struct {
@@ -22,18 +23,18 @@ func NewClient(host string, logger *zap.SugaredLogger) *Client {
 	}
 }
 
-func (client *Client) UpdateMetric(metric models.Metrics) {
+func (client *Client) UpdateMetric(metric models.Metrics) error {
 	path := "/update"
 	body, err := json.Marshal(metric)
 
 	if err != nil {
-		client.logger.Errorw("failed to marshal metric", "error", err)
+		return err
 	}
 
-	client.sendRequest(path, body)
+	return client.sendRequest(path, body)
 }
 
-func (client *Client) UpdateMetrics(metrics []models.Metrics) {
+func (client *Client) UpdateMetrics(metrics []models.Metrics) error {
 	path := "/updates"
 	body, err := json.Marshal(metrics)
 
@@ -41,10 +42,10 @@ func (client *Client) UpdateMetrics(metrics []models.Metrics) {
 		client.logger.Errorw("failed to marshal metric", "error", err)
 	}
 
-	client.sendRequest(path, body)
+	return client.sendRequest(path, body)
 }
 
-func (client *Client) sendRequest(path string, body []byte) {
+func (client *Client) sendRequest(path string, body []byte) error {
 	client.
 		resty.
 		SetHeader("Content-Type", "application/json").
@@ -53,10 +54,12 @@ func (client *Client) sendRequest(path string, body []byte) {
 	resp, err := client.resty.R().SetBody(body).Post(path)
 
 	if err != nil {
-		client.logger.Debug("failed to update body: error", "host", client.host, "body", body, "error", err)
+		return err
 	}
 
-	if resp.StatusCode() != 200 {
-		client.logger.Debug("failed to update body: error", "host", client.host, "body", body, "status", resp.StatusCode())
+	if resp.StatusCode() != http.StatusOK {
+		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode(), resp.Body())
 	}
+
+	return nil
 }

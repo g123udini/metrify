@@ -15,6 +15,7 @@ func main() {
 		gauges      map[string]float64
 		lastReport  = time.Now()
 		metricBatch []models.Metrics
+		maxRetry    = 3
 	)
 	f := parseFlags()
 	normalizedHost := normalizeHost(f.Host)
@@ -34,7 +35,13 @@ func main() {
 				metric.Value = &val
 				metric.MType = models.Gauge
 
-				client.UpdateMetric(metric)
+				err := service.Retry(maxRetry, 2*time.Second, func() error {
+					return client.UpdateMetric(metric)
+				})
+
+				if err != nil {
+					logger.Error(err.Error())
+				}
 
 				metricBatch = append(metricBatch, metric)
 			}
@@ -44,12 +51,25 @@ func main() {
 			metric.MType = models.Counter
 
 			metricBatch = append(metricBatch, metric)
-			client.UpdateMetric(metric)
+
+			err := service.Retry(maxRetry, 2*time.Second, func() error {
+				return client.UpdateMetric(metric)
+			})
+
+			if err != nil {
+				logger.Error(err.Error())
+			}
 
 			lastReport = time.Now()
 		}
 
-		client.UpdateMetrics(metricBatch)
+		err := service.Retry(maxRetry, 2*time.Second, func() error {
+			return client.UpdateMetric(metric)
+		})
+
+		if err != nil {
+			logger.Error(err.Error())
+		}
 	}
 }
 

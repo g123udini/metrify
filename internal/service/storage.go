@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"sync"
+	"time"
 )
 
 type MemStorage struct {
@@ -13,6 +14,7 @@ type MemStorage struct {
 	mu       sync.RWMutex
 	filepath string
 	db       *sql.DB
+	maxRetry int
 }
 
 func NewMemStorage(filepath string, db *sql.DB) *MemStorage {
@@ -21,6 +23,7 @@ func NewMemStorage(filepath string, db *sql.DB) *MemStorage {
 		counters: make(map[string]int64),
 		filepath: filepath,
 		db:       db,
+		maxRetry: 3,
 	}
 }
 
@@ -57,9 +60,15 @@ func (ms *MemStorage) UpdateGauge(name string, value float64) error {
 	ms.gauges[name] = value
 
 	if ms.db != nil {
-		_, err := ms.db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, value)
+		err := Retry(ms.maxRetry, 2*time.Second, func() error {
+			_, err := ms.db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, value)
 
-		return err
+			return err
+		})
+
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -72,9 +81,15 @@ func (ms *MemStorage) UpdateCounter(name string, delta int64) error {
 	ms.counters[name] += delta
 
 	if ms.db != nil {
-		_, err := ms.db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, delta)
+		err := Retry(ms.maxRetry, 2*time.Second, func() error {
+			_, err := ms.db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, delta)
 
-		return err
+			return err
+		})
+
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
