@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -59,19 +60,7 @@ func (ms *MemStorage) UpdateGauge(name string, value float64) error {
 
 	ms.gauges[name] = value
 
-	if ms.db != nil {
-		err := Retry(ms.maxRetry, 2*time.Second, func() error {
-			_, err := ms.db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, value)
-
-			return err
-		})
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return ms.saveDB(name, strconv.FormatFloat(value, 'f', -1, 64))
 }
 
 func (ms *MemStorage) UpdateCounter(name string, delta int64) error {
@@ -80,19 +69,7 @@ func (ms *MemStorage) UpdateCounter(name string, delta int64) error {
 
 	ms.counters[name] += delta
 
-	if ms.db != nil {
-		err := Retry(ms.maxRetry, 2*time.Second, func() error {
-			_, err := ms.db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, delta)
-
-			return err
-		})
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return ms.saveDB(name, strconv.FormatInt(delta, 10))
 }
 
 func (ms *MemStorage) UnmarshalJSON(data []byte) error {
@@ -149,4 +126,18 @@ func (ms *MemStorage) FlushToFile() error {
 	}
 
 	return os.WriteFile(ms.filepath, data, 0644)
+}
+
+func (ms *MemStorage) saveDB(name string, value string) error {
+	if ms.db != nil {
+		_, err := Retry(ms.maxRetry, 2*time.Second, func() (sql.Result, error) {
+			return ms.db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, value)
+		})
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

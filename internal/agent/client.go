@@ -6,20 +6,24 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/resty.v1"
 	models "metrify/internal/model"
+	"metrify/internal/service"
 	"net/http"
+	"time"
 )
 
 type Client struct {
-	logger *zap.SugaredLogger
-	resty  *resty.Client
-	host   string
+	logger   *zap.SugaredLogger
+	resty    *resty.Client
+	host     string
+	maxRetry int
 }
 
 func NewClient(host string, logger *zap.SugaredLogger) *Client {
 	return &Client{
-		logger: logger,
-		resty:  resty.New(),
-		host:   host,
+		logger:   logger,
+		resty:    resty.New(),
+		host:     host,
+		maxRetry: 3,
 	}
 }
 
@@ -31,7 +35,7 @@ func (client *Client) UpdateMetric(metric models.Metrics) error {
 		return err
 	}
 
-	return client.sendRequest(path, body)
+	return client.sendRequest(path, body, client.maxRetry)
 }
 
 func (client *Client) UpdateMetrics(metrics []models.Metrics) error {
@@ -42,16 +46,18 @@ func (client *Client) UpdateMetrics(metrics []models.Metrics) error {
 		client.logger.Errorw("failed to marshal metric", "error", err)
 	}
 
-	return client.sendRequest(path, body)
+	return client.sendRequest(path, body, client.maxRetry)
 }
 
-func (client *Client) sendRequest(path string, body []byte) error {
+func (client *Client) sendRequest(path string, body []byte, maxRetry int) error {
 	client.
 		resty.
 		SetHeader("Content-Type", "application/json").
 		SetHostURL(fmt.Sprintf("http://%s", client.host))
 
-	resp, err := client.resty.R().SetBody(body).Post(path)
+	resp, err := service.Retry(maxRetry, 2*time.Second, func() (*resty.Response, error) {
+		return client.resty.R().SetBody(body).Post(path)
+	})
 
 	if err != nil {
 		return err

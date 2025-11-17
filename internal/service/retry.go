@@ -5,21 +5,22 @@ import (
 	"time"
 )
 
-func Retry(attempts int, initialDelay time.Duration, fn func() error) error {
-	delay := initialDelay
-	var err error
+func Retry[T any](attempts int, initialDelay time.Duration, fn func() (T, error)) (T, error) {
+	var (
+		delay = initialDelay
+		res   T
+		err   error
+	)
 
 	for i := 1; i <= attempts; i++ {
-		if err = fn(); err == nil {
-			return nil
+		res, err = fn()
+		if err == nil {
+			return res, nil
 		}
 
 		time.Sleep(delay)
 		delay *= 2
 	}
 
-	return fmt.Errorf(
-		"after %d attempts, last error: %w",
-		attempts, err,
-	)
+	return res, fmt.Errorf("after %d attempts, last error: %w", attempts, err)
 }
