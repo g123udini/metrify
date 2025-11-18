@@ -66,6 +66,8 @@ func main() {
 			if err != nil {
 				logger.Error(err.Error())
 			}
+
+			metricBatch = metricBatch[:0]
 		}
 	}
 }
