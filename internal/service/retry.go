@@ -28,24 +28,31 @@ func Retry[T any](attempts int, base time.Duration, step time.Duration, fn func(
 	return res, fmt.Errorf("after %d attempts, last error: %w", attempts, err)
 }
 
-func RetryDB[T any](attempts int, base time.Duration, step time.Duration, fn func() (T, error)) (T, error) {
+func RetryDB[T any](attempts int, base, step time.Duration, fn func() (T, error)) (T, error) {
 	var (
 		res T
 		err error
 	)
 
-	for i := 1; i <= attempts; i++ {
+	for i := 1; i < attempts; i++ {
 		res, err = fn()
-		var pgErr *pgconn.PgError
 
-		if errors.As(err, &pgErr) {
-			if pgErr.SQLState() != pgerrcode.ConnectionFailure || pgErr.SQLState() != pgerrcode.TooManyConnections {
-				return res, nil
-			}
+		if err == nil {
+			return res, nil
+		}
+
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) {
+			return res, err
+		}
+
+		if pgErr.SQLState() != pgerrcode.ConnectionFailure &&
+			pgErr.SQLState() != pgerrcode.TooManyConnections &&
+			pgErr.SQLState() != pgerrcode.DeadlockDetected {
+			return res, err
 		}
 
 		delay := base + step*time.Duration(i)
-
 		time.Sleep(delay)
 	}
 
