@@ -34,7 +34,7 @@ func main() {
 		}
 	}
 
-	go runMetricDumper(ms, db, f)
+	go runMetricDumper(ms, f)
 	err := run(ms, db, logger, f)
 
 	if err != nil {
@@ -55,7 +55,7 @@ func run(ms *service.MemStorage, db *sql.DB, logger *zap.SugaredLogger, f *flags
 	return http.ListenAndServe(f.RunAddr, router.Metric(h))
 }
 
-func runMetricDumper(ms *service.MemStorage, db *sql.DB, f *flags) {
+func runMetricDumper(ms *service.MemStorage, f *flags) {
 	ticker := time.NewTicker(time.Duration(f.StoreInterval) * time.Second)
 	defer ticker.Stop()
 

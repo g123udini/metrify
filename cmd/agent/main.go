@@ -34,34 +34,38 @@ func main() {
 				metric.Value = &val
 				metric.MType = models.Gauge
 
-				err := client.UpdateMetric(metric)
-
-				if err != nil {
-					logger.Error(err.Error())
+				if f.BatchUpdate {
+					metricBatch = append(metricBatch, metric)
+				} else {
+					err := client.UpdateMetric(metric)
+					if err != nil {
+						logger.Error(err.Error())
+					}
 				}
-
-				metricBatch = append(metricBatch, metric)
 			}
 
 			metric.ID = "PollCount"
 			metric.Delta = &pollCount
 			metric.MType = models.Counter
 
-			metricBatch = append(metricBatch, metric)
-
-			err := client.UpdateMetric(metric)
-
-			if err != nil {
-				logger.Error(err.Error())
+			if f.BatchUpdate {
+				metricBatch = append(metricBatch, metric)
+			} else {
+				err := client.UpdateMetric(metric)
+				if err != nil {
+					logger.Error(err.Error())
+				}
 			}
 
 			lastReport = time.Now()
 		}
 
-		err := client.UpdateMetrics(metricBatch)
+		if f.BatchUpdate {
+			err := client.UpdateMetrics(metricBatch)
 
-		if err != nil {
-			logger.Error(err.Error())
+			if err != nil {
+				logger.Error(err.Error())
+			}
 		}
 	}
 }

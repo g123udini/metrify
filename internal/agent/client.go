@@ -55,7 +55,7 @@ func (client *Client) sendRequest(path string, body []byte, maxRetry int) error 
 		SetHeader("Content-Type", "application/json").
 		SetHostURL(fmt.Sprintf("http://%s", client.host))
 
-	resp, err := service.Retry(maxRetry, 2*time.Second, func() (*resty.Response, error) {
+	resp, err := service.Retry(maxRetry, 1*time.Second, 2*time.Second, func() (*resty.Response, error) {
 		return client.resty.R().SetBody(body).Post(path)
 	})
 
