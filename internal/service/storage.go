@@ -130,7 +130,7 @@ func (ms *MemStorage) FlushToFile() error {
 
 func (ms *MemStorage) saveDB(name string, value string) error {
 	if ms.db != nil {
-		_, err := RetryDB(ms.maxRetry, 1*time.Second, 2*time.Second, func() (sql.Result, error) {
+		_, err := Retry(ms.maxRetry, 1*time.Second, 2*time.Second, func() (sql.Result, error) {
 			return ms.db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, value)
 		})
 
