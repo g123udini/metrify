@@ -20,7 +20,7 @@ func Retry[T any](attempts int, base time.Duration, step time.Duration, fn func(
 			return res, nil
 		}
 
-		delay := base + step*time.Duration(i)
+		delay := base + step*time.Duration(i-1)
 
 		time.Sleep(delay)
 	}
@@ -52,7 +52,7 @@ func RetryDB[T any](attempts int, base, step time.Duration, fn func() (T, error)
 			return res, err
 		}
 
-		delay := base + step*time.Duration(i)
+		delay := base + step*time.Duration(i-1)
 		time.Sleep(delay)
 	}
 

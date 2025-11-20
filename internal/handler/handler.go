@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"metrify/internal/compresser"
@@ -139,6 +138,7 @@ func (handler *Handler) UpdateMetricsBatch(w http.ResponseWriter, r *http.Reques
 	dec := json.NewDecoder(r.Body)
 	var metrics []models.Metrics
 	var err error = nil
+	var errs []error
 	defer r.Body.Close()
 
 	if err = dec.Decode(&metrics); err != nil {
@@ -150,19 +150,24 @@ func (handler *Handler) UpdateMetricsBatch(w http.ResponseWriter, r *http.Reques
 			err = handler.ms.UpdateGauge(metric.ID, *metric.Value)
 
 			if err != nil {
-				err = errors.Join(err)
+				errs = append(errs, err)
 			}
 		} else {
 			err = handler.ms.UpdateCounter(metric.ID, *metric.Delta)
 
 			if err != nil {
-				err = errors.Join(err)
+				errs = append(errs, err)
 			}
 		}
 	}
 
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if len(errs) > 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+
+		json.NewEncoder(w).Encode(map[string]any{
+			"errors": errs,
+		})
 		return
 	}
 

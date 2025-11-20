@@ -58,16 +58,16 @@ func main() {
 			}
 
 			lastReport = time.Now()
-		}
 
-		if f.BatchUpdate {
-			err := client.UpdateMetrics(metricBatch)
+			if f.BatchUpdate {
+				err := client.UpdateMetrics(metricBatch)
 
-			if err != nil {
-				logger.Error(err.Error())
+				if err != nil {
+					logger.Error(err.Error())
+				}
+
+				metricBatch = metricBatch[:0]
 			}
-
-			metricBatch = metricBatch[:0]
 		}
 	}
 }
