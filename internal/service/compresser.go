@@ -1,4 +1,4 @@
-package compresser
+package service
 
 import (
 	"compress/gzip"

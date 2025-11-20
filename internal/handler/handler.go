@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
-	"metrify/internal/compresser"
 	models "metrify/internal/model"
 	"metrify/internal/service"
 	"net/http"
@@ -237,7 +236,7 @@ func (handler *Handler) WithRequestCompress(h http.Handler) http.Handler {
 			return
 		}
 
-		dr, err := compresser.NewCompressReader(r.Body)
+		dr, err := service.NewCompressReader(r.Body)
 
 		if err != nil {
 			http.Error(w, "invalid gzip", http.StatusBadRequest)
@@ -255,9 +254,10 @@ func (handler *Handler) WithResponseCompress(h http.Handler) http.Handler {
 			return
 		}
 
-		cw := compresser.NewCompressWriter(w)
+		cw := service.NewCompressWriter(w)
 		w = cw
 		defer cw.Close()
+		cw.WriteHeader(http.StatusOK)
 
 		h.ServeHTTP(w, r)
 	})
