@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -16,16 +18,18 @@ import (
 type Handler struct {
 	ms                 service.Storage
 	logger             *zap.SugaredLogger
+	db                 *sql.DB
 	dumpToFile         bool
 	AllowedContentType string
 }
 
-func NewHandler(ms service.Storage, logger *zap.SugaredLogger, dump bool) *Handler {
+func NewHandler(ms service.Storage, logger *zap.SugaredLogger, db *sql.DB, dump bool) *Handler {
 	return &Handler{
 		ms:                 ms,
 		logger:             logger,
-		AllowedContentType: "text/plain",
+		db:                 db,
 		dumpToFile:         dump,
+		AllowedContentType: "text/plain",
 	}
 }
 
@@ -100,11 +104,10 @@ func (handler *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 func (handler *Handler) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	metric := models.Metrics{}
-	sugar := service.NewLogger()
 	defer r.Body.Close()
 
 	if err := dec.Decode(&metric); err != nil {
-		sugar.Debug("Error decoding JSON", zap.Error(err))
+		handler.logger.Debug("Error decoding JSON", zap.Error(err))
 	}
 
 	if metric.Value == nil && metric.Delta == nil {
@@ -122,8 +125,50 @@ func (handler *Handler) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 		err := handler.ms.FlushToFile()
 
 		if err != nil {
-			sugar.Error("Error flushing to file", zap.Error(err))
+			handler.logger.Error("Error flushing to file", zap.Error(err))
 		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status": "ok"}`))
+}
+
+func (handler *Handler) UpdateMetricsBatch(w http.ResponseWriter, r *http.Request) {
+	dec := json.NewDecoder(r.Body)
+	var metrics []models.Metrics
+	var err error = nil
+	var errs []error
+	defer r.Body.Close()
+
+	if err = dec.Decode(&metrics); err != nil {
+		handler.logger.Debug("Error decoding JSON", zap.Error(err))
+	}
+
+	for _, metric := range metrics {
+		if metric.MType == models.Gauge {
+			err = handler.ms.UpdateGauge(metric.ID, *metric.Value)
+
+			if err != nil {
+				errs = append(errs, err)
+			}
+		} else {
+			err = handler.ms.UpdateCounter(metric.ID, *metric.Delta)
+
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+
+	if len(errs) > 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+
+		json.NewEncoder(w).Encode(map[string]any{
+			"errors": errs,
+		})
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -222,4 +267,24 @@ func (handler *Handler) GetInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
+}
+
+func (handler *Handler) Ping(w http.ResponseWriter, r *http.Request) {
+	if handler.db == nil {
+		http.Error(w, "database is not initialized", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if err := handler.db.PingContext(ctx); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status": "ok"}`))
 }

@@ -1,9 +1,12 @@
 package service
 
 import (
+	"database/sql"
 	"encoding/json"
 	"os"
+	"strconv"
 	"sync"
+	"time"
 )
 
 type MemStorage struct {
@@ -11,21 +14,25 @@ type MemStorage struct {
 	counters map[string]int64
 	mu       sync.RWMutex
 	filepath string
+	db       *sql.DB
+	maxRetry int
 }
 
-func NewMemStorage(filepath string) *MemStorage {
+func NewMemStorage(filepath string, db *sql.DB) *MemStorage {
 	return &MemStorage{
 		gauges:   make(map[string]float64),
 		counters: make(map[string]int64),
 		filepath: filepath,
+		db:       db,
+		maxRetry: 3,
 	}
 }
 
 type Storage interface {
 	GetCounter(key string) (int64, bool)
 	GetGauge(key string) (float64, bool)
-	UpdateGauge(name string, value float64)
-	UpdateCounter(name string, delta int64)
+	UpdateGauge(name string, value float64) error
+	UpdateCounter(name string, delta int64) error
 	FlushToFile() error
 }
 
@@ -47,18 +54,22 @@ func (ms *MemStorage) GetGauge(key string) (float64, bool) {
 	return val, ok
 }
 
-func (ms *MemStorage) UpdateGauge(name string, value float64) {
+func (ms *MemStorage) UpdateGauge(name string, value float64) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
 	ms.gauges[name] = value
+
+	return ms.saveDB(name, strconv.FormatFloat(value, 'f', -1, 64))
 }
 
-func (ms *MemStorage) UpdateCounter(name string, delta int64) {
+func (ms *MemStorage) UpdateCounter(name string, delta int64) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
 	ms.counters[name] += delta
+
+	return ms.saveDB(name, strconv.FormatInt(delta, 10))
 }
 
 func (ms *MemStorage) UnmarshalJSON(data []byte) error {
@@ -115,4 +126,18 @@ func (ms *MemStorage) FlushToFile() error {
 	}
 
 	return os.WriteFile(ms.filepath, data, 0644)
+}
+
+func (ms *MemStorage) saveDB(name string, value string) error {
+	if ms.db != nil {
+		_, err := RetryDB(ms.maxRetry, 1*time.Second, 2*time.Second, func() (sql.Result, error) {
+			return ms.db.Exec("INSERT INTO metrics (name, value) VALUES ($1, $2)", name, value)
+		})
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

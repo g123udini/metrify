@@ -6,40 +6,66 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/resty.v1"
 	models "metrify/internal/model"
+	"metrify/internal/service"
+	"net/http"
+	"time"
 )
 
 type Client struct {
-	logger *zap.SugaredLogger
-	resty  *resty.Client
+	logger   *zap.SugaredLogger
+	resty    *resty.Client
+	host     string
+	maxRetry int
 }
 
-func NewClient(logger *zap.SugaredLogger) *Client {
+func NewClient(host string, logger *zap.SugaredLogger) *Client {
 	return &Client{
-		logger: logger,
-		resty:  resty.New(),
+		logger:   logger,
+		resty:    resty.New(),
+		host:     host,
+		maxRetry: 3,
 	}
 }
 
-func (client *Client) UpdateMetric(host string, metric models.Metrics) {
+func (client *Client) UpdateMetric(metric models.Metrics) error {
 	path := "/update"
-	client.
-		resty.
-		SetHeader("Content-Type", "application/json").
-		SetHostURL(fmt.Sprintf("http://%s", host))
-
 	body, err := json.Marshal(metric)
+
+	if err != nil {
+		return err
+	}
+
+	return client.sendRequest(path, body, client.maxRetry)
+}
+
+func (client *Client) UpdateMetrics(metrics []models.Metrics) error {
+	path := "/updates"
+	body, err := json.Marshal(metrics)
 
 	if err != nil {
 		client.logger.Errorw("failed to marshal metric", "error", err)
 	}
 
-	resp, err := client.resty.R().SetBody(body).Post(path)
+	return client.sendRequest(path, body, client.maxRetry)
+}
+
+func (client *Client) sendRequest(path string, body []byte, maxRetry int) error {
+	client.
+		resty.
+		SetHeader("Content-Type", "application/json").
+		SetHostURL(fmt.Sprintf("http://%s", client.host))
+
+	resp, err := service.Retry(maxRetry, 1*time.Second, 2*time.Second, func() (*resty.Response, error) {
+		return client.resty.R().SetBody(body).Post(path)
+	})
 
 	if err != nil {
-		client.logger.Debug("failed to update metric: error", "host", host, "metric", metric, "error", err)
+		return err
 	}
 
-	if resp.StatusCode() != 200 {
-		client.logger.Debug("failed to update metric: error", "host", host, "metric", metric, "status", resp.StatusCode())
+	if resp.StatusCode() != http.StatusOK {
+		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode(), resp.Body())
 	}
+
+	return nil
 }

@@ -3,23 +3,24 @@ package main
 import (
 	"fmt"
 	"metrify/internal/agent"
-	"metrify/internal/service"
 	models "metrify/internal/model"
+	"metrify/internal/service"
 	"net"
 	"time"
 )
 
 func main() {
 	var (
-		pollCount  int64
-		gauges     map[string]float64
-		lastReport = time.Now()
+		pollCount   int64
+		gauges      map[string]float64
+		lastReport  = time.Now()
+		metricBatch []models.Metrics
 	)
 	f := parseFlags()
 	normalizedHost := normalizeHost(f.Host)
 	metric := models.Metrics{}
 	logger := service.NewLogger()
-	client := agent.NewClient(logger)
+	client := agent.NewClient(normalizedHost, logger)
 
 	for {
 		time.Sleep(time.Duration(f.PollInterval) * time.Second)
@@ -33,16 +34,40 @@ func main() {
 				metric.Value = &val
 				metric.MType = models.Gauge
 
-				client.UpdateMetric(normalizedHost, metric)
+				if f.BatchUpdate {
+					metricBatch = append(metricBatch, metric)
+				} else {
+					err := client.UpdateMetric(metric)
+					if err != nil {
+						logger.Error(err.Error())
+					}
+				}
 			}
 
 			metric.ID = "PollCount"
 			metric.Delta = &pollCount
 			metric.MType = models.Counter
 
-			client.UpdateMetric(normalizedHost, metric)
+			if f.BatchUpdate {
+				metricBatch = append(metricBatch, metric)
+			} else {
+				err := client.UpdateMetric(metric)
+				if err != nil {
+					logger.Error(err.Error())
+				}
+			}
 
 			lastReport = time.Now()
+
+			if f.BatchUpdate {
+				err := client.UpdateMetrics(metricBatch)
+
+				if err != nil {
+					logger.Error(err.Error())
+				}
+
+				metricBatch = metricBatch[:0]
+			}
 		}
 	}
 }
