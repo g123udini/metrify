@@ -1,4 +1,4 @@
-package compresser
+package service
 
 import (
 	"compress/gzip"
@@ -20,6 +20,7 @@ func NewCompressWriter(w http.ResponseWriter) *CompressWriter {
 }
 
 func (c *CompressWriter) Write(b []byte) (int, error) {
+	c.Header().Set("Content-Encoding", "gzip")
 	return c.gz.Write(b)
 }
 
