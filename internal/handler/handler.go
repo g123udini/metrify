@@ -257,7 +257,6 @@ func (handler *Handler) WithResponseCompress(h http.Handler) http.Handler {
 		cw := service.NewCompressWriter(w)
 		w = cw
 		defer cw.Close()
-		cw.WriteHeader(http.StatusOK)
 
 		h.ServeHTTP(w, r)
 	})

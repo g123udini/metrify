@@ -17,7 +17,7 @@ import (
 	"metrify/internal/service"
 )
 
-func newRealStorage() *service.MemStorage {
+func newTestStorage() *service.MemStorage {
 	f, _ := os.CreateTemp("", "memstorage-test-*.json")
 	path := f.Name()
 	f.Close()
@@ -25,7 +25,7 @@ func newRealStorage() *service.MemStorage {
 }
 
 func newTestHandler() (*Handler, *service.MemStorage) {
-	ms := newRealStorage()
+	ms := newTestStorage()
 	logger := zap.NewNop().Sugar()
 	h := NewHandler(ms, logger, nil, false)
 	return h, ms
