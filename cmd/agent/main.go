@@ -20,7 +20,7 @@ func main() {
 	normalizedHost := normalizeHost(f.Host)
 	metric := models.Metrics{}
 	logger := service.NewLogger()
-	client := agent.NewClient(normalizedHost, logger)
+	client := agent.NewClient(normalizedHost, logger, f.Key)
 
 	for {
 		time.Sleep(time.Duration(f.PollInterval) * time.Second)

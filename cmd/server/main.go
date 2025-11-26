@@ -50,7 +50,7 @@ func run(ms *service.MemStorage, db *sql.DB, logger *zap.SugaredLogger, f *flags
 		}
 	}
 
-	h := handler.NewHandler(ms, logger, db, f.StoreInterval == 0)
+	h := handler.NewHandler(ms, logger, db, f.StoreInterval == 0, f.Key)
 
 	return http.ListenAndServe(f.RunAddr, router.Metric(h))
 }
