@@ -12,6 +12,7 @@ type flags struct {
 	FileStorePath string `env:"FILE_STORE_PATH"`
 	Restore       bool   `env:"RESTORE"`
 	Dsn           string `env:"DATABASE_DSN"`
+	Key           string `env:"KEY"`
 }
 
 func parseFlags() *flags {
@@ -21,6 +22,7 @@ func parseFlags() *flags {
 		FileStorePath: "./metrics.json",
 		Restore:       true,
 		Dsn:           "",
+		Key:           "",
 	}
 
 	flag.StringVar(&f.RunAddr, "a", f.RunAddr, "address and port to run server")
@@ -28,6 +30,7 @@ func parseFlags() *flags {
 	flag.StringVar(&f.FileStorePath, "f", f.FileStorePath, "path to store files")
 	flag.BoolVar(&f.Restore, "r", f.Restore, "restore metrics")
 	flag.StringVar(&f.Dsn, "d", f.Dsn, "database connection string")
+	flag.StringVar(&f.Key, "k", f.Key, "key to use for encryption")
 
 	flag.Parse()
 

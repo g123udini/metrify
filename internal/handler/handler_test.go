@@ -27,7 +27,7 @@ func newTestStorage() *service.MemStorage {
 func newTestHandler() (*Handler, *service.MemStorage) {
 	ms := newTestStorage()
 	logger := zap.NewNop().Sugar()
-	h := NewHandler(ms, logger, nil, false)
+	h := NewHandler(ms, logger, nil, false, "")
 	return h, ms
 }
 
