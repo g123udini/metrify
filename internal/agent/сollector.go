@@ -1,6 +1,9 @@
 package agent
 
 import (
+	"fmt"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
 	"math/rand"
 	"runtime"
 )
@@ -39,4 +42,22 @@ func CollectGauge() map[string]float64 {
 		"TotalAlloc":    float64(m.TotalAlloc),
 		"RandomValue":   rand.Float64(),
 	}
+}
+
+func CollectGopsutilGauges() map[string]float64 {
+	gauges := make(map[string]float64)
+
+	if vm, err := mem.VirtualMemory(); err == nil {
+		gauges["TotalMemory"] = float64(vm.Total)
+		gauges["FreeMemory"] = float64(vm.Free)
+	}
+
+	if percents, err := cpu.Percent(0, true); err == nil {
+		for i, p := range percents {
+			key := fmt.Sprintf("CPUutilization%d", i+1)
+			gauges[key] = p
+		}
+	}
+
+	return gauges
 }
