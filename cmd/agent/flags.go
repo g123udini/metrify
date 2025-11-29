@@ -12,6 +12,7 @@ type flags struct {
 	ReportInterval int    `env:"REPORT_INTERVAL"`
 	BatchUpdate    bool   `env:"BATCH_UPDATE"`
 	Key            string `env:"KEY"`
+	RateLimit      int    `env:"RATE_LIMIT"`
 }
 
 func parseFlags() *flags {
@@ -21,6 +22,7 @@ func parseFlags() *flags {
 		ReportInterval: 10,
 		BatchUpdate:    false,
 		Key:            "",
+		RateLimit:      1,
 	}
 
 	flag.StringVar(&f.Host, "a", f.Host, "address and host to run server")
@@ -28,6 +30,7 @@ func parseFlags() *flags {
 	flag.IntVar(&f.ReportInterval, "r", f.ReportInterval, "interval between reports")
 	flag.BoolVar(&f.BatchUpdate, "b", f.BatchUpdate, "send metrics in batches")
 	flag.StringVar(&f.Key, "k", f.Key, "private key to use for authentication")
+	flag.IntVar(&f.RateLimit, "l", f.RateLimit, "rate limit")
 
 	flag.Parse()
 
