@@ -64,7 +64,7 @@ func TestMetric(t *testing.T) {
 	ms := service.NewMemStorage(filepath, db)
 	logger := service.NewLogger()
 
-	h := handler.NewHandler(ms, logger, db, true)
+	h := handler.NewHandler(ms, logger, db, true, "")
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()
 

@@ -15,14 +15,16 @@ type Client struct {
 	logger   *zap.SugaredLogger
 	resty    *resty.Client
 	host     string
+	hashKey  string
 	maxRetry int
 }
 
-func NewClient(host string, logger *zap.SugaredLogger) *Client {
+func NewClient(host string, logger *zap.SugaredLogger, hashKey string) *Client {
 	return &Client{
 		logger:   logger,
-		resty:    resty.New(),
+		resty:    resty.New().SetTimeout(8),
 		host:     host,
+		hashKey:  hashKey,
 		maxRetry: 3,
 	}
 }
@@ -54,6 +56,10 @@ func (client *Client) sendRequest(path string, body []byte, maxRetry int) error 
 		resty.
 		SetHeader("Content-Type", "application/json").
 		SetHostURL(fmt.Sprintf("http://%s", client.host))
+
+	if client.hashKey != "" {
+		client.resty.SetHeader("HashSHA256", service.SignData(body, client.hashKey))
+	}
 
 	resp, err := service.Retry(maxRetry, 1*time.Second, 2*time.Second, func() (*resty.Response, error) {
 		return client.resty.R().SetBody(body).Post(path)

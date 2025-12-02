@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+	"io"
 	models "metrify/internal/model"
 	"metrify/internal/service"
 	"net/http"
@@ -20,15 +22,17 @@ type Handler struct {
 	db                 *sql.DB
 	dumpToFile         bool
 	AllowedContentType string
+	Key                string
 }
 
-func NewHandler(ms service.Storage, logger *zap.SugaredLogger, db *sql.DB, dump bool) *Handler {
+func NewHandler(ms service.Storage, logger *zap.SugaredLogger, db *sql.DB, dump bool, key string) *Handler {
 	return &Handler{
 		ms:                 ms,
 		logger:             logger,
 		db:                 db,
 		dumpToFile:         dump,
 		AllowedContentType: "text/plain",
+		Key:                key,
 	}
 }
 
@@ -212,7 +216,7 @@ func (handler *Handler) WithLogging(h http.Handler) http.Handler {
 		uri := r.RequestURI
 		method := r.Method
 
-		h.ServeHTTP(loggingWriter, r) // обслуживание оригинального запроса
+		h.ServeHTTP(loggingWriter, r)
 		end := time.Now()
 		duration := end.Sub(start)
 
@@ -257,6 +261,34 @@ func (handler *Handler) WithResponseCompress(h http.Handler) http.Handler {
 		cw := service.NewCompressWriter(w)
 		w = cw
 		defer cw.Close()
+
+		h.ServeHTTP(w, r)
+	})
+}
+
+func (handler *Handler) WithHashedRequest(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body []byte
+		hash := r.Header.Get("HashSHA256")
+
+		if hash == "" {
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "failed to read body", http.StatusBadRequest)
+			return
+		}
+		defer r.Body.Close()
+
+		if service.SignData(body, handler.Key) != hash {
+			http.Error(w, "", http.StatusUnauthorized)
+			return
+		}
+
+		r.Body = io.NopCloser(bytes.NewReader(body))
 
 		h.ServeHTTP(w, r)
 	})
