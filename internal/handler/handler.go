@@ -284,7 +284,7 @@ func (handler *Handler) WithHashedRequest(h http.Handler) http.Handler {
 		defer r.Body.Close()
 
 		if service.SignData(body, handler.Key) != hash {
-			http.Error(w, "Authorization failed", http.StatusUnauthorized)
+			http.Error(w, "", http.StatusUnauthorized)
 			return
 		}
 
