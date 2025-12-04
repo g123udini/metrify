@@ -47,7 +47,6 @@ func runRuntimeCollector(
 	for {
 		select {
 		case <-ctx.Done():
-			close(metricChan)
 			return
 		case <-ticker.C:
 			m := agent.CollectGauge()
