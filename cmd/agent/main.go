@@ -3,109 +3,59 @@ package main
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 	"metrify/internal/agent"
 	models "metrify/internal/model"
 	"metrify/internal/service"
 	"net"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 )
 
 func main() {
 	f := parseFlags()
-	logger := service.NewLogger()
+	metricChan := make(chan models.Metrics, 1000) // буфер, чтобы коллекторы не стопорились
 	normalizedHost := normalizeHost(f.Host)
+	logger := service.NewLogger()
 	client := agent.NewClient(normalizedHost, logger, f.Key)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	gaugesCh := make(chan map[string]float64)
-	jobs := make(chan []models.Metrics, 10)
-
-	go runRuntimeCollector(ctx, time.Duration(f.PollInterval)*time.Second, gaugesCh)
-	go runGopsutilCollector(ctx, time.Duration(f.PollInterval)*time.Second, gaugesCh)
-
-	go runCollector(ctx, f, gaugesCh, jobs)
-
-	workerCount := f.RateLimit
-
 	var wg sync.WaitGroup
-	wg.Add(workerCount)
 
-	for i := 0; i <= workerCount; i++ {
-		go func(id int) {
-			defer wg.Done()
-			runSender(ctx, id, jobs, client, f.BatchUpdate, logger)
-		}(i + 1)
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		runRuntimeCollector(ctx, time.Duration(f.PollInterval)*time.Second, metricChan)
+	}()
+	go func() {
+		defer wg.Done()
+		runGopsutilCollector(ctx, time.Duration(f.PollInterval)*time.Second, metricChan)
+	}()
+
+	for i := 0; i < f.RateLimit; i++ {
+		go runSender(ctx, client, f, metricChan)
 	}
-}
 
-func runCollector(
-	ctx context.Context,
-	f *flags,
-	gaugesCh <-chan map[string]float64,
-	jobs chan<- []models.Metrics,
-) {
-	defer close(jobs)
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
-	reportTicker := time.NewTicker(time.Duration(f.ReportInterval) * time.Second)
-	defer reportTicker.Stop()
-
-	gauges := make(map[string]float64)
-	var pollCount int64
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-
-		case m := <-gaugesCh:
-			for k, v := range m {
-				gauges[k] = v
-			}
-			pollCount++
-
-		case <-reportTicker.C:
-			if len(gauges) == 0 {
-				continue
-			}
-
-			var batch []models.Metrics
-
-			for key, val := range gauges {
-				v := val
-				batch = append(batch, models.Metrics{
-					ID:    key,
-					Value: &v,
-					MType: models.Gauge,
-				})
-			}
-
-			pc := pollCount
-			batch = append(batch, models.Metrics{
-				ID:    "PollCount",
-				Delta: &pc,
-				MType: models.Counter,
-			})
-
-			select {
-			case <-ctx.Done():
-				return
-			case jobs <- batch:
-			}
-		}
-	}
+	<-sigCh
+	cancel()
+	wg.Wait()
+	close(metricChan)
 }
 
 func runRuntimeCollector(
 	ctx context.Context,
 	pollInterval time.Duration,
-	out chan<- map[string]float64,
+	metricChan chan<- models.Metrics,
 ) {
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
+
+	pollCounter := int64(0)
 
 	for {
 		select {
@@ -113,10 +63,18 @@ func runRuntimeCollector(
 			return
 		case <-ticker.C:
 			m := agent.CollectGauge()
-			select {
-			case <-ctx.Done():
-				return
-			case out <- m:
+			for name, value := range m {
+				metricChan <- models.Metrics{
+					ID:    name,
+					Value: &value,
+					MType: models.Gauge,
+				}
+			}
+			pollCounter++
+			metricChan <- models.Metrics{
+				ID:    "PollCount",
+				Delta: &pollCounter,
+				MType: models.Counter,
 			}
 		}
 	}
@@ -125,7 +83,7 @@ func runRuntimeCollector(
 func runGopsutilCollector(
 	ctx context.Context,
 	pollInterval time.Duration,
-	out chan<- map[string]float64,
+	metricChan chan<- models.Metrics,
 ) {
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
@@ -135,40 +93,67 @@ func runGopsutilCollector(
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			m := agent.CollectGopsutilGauges()
-			select {
-			case <-ctx.Done():
-				return
-			case out <- m:
+			m := agent.CollectGauge() // или отдельная CollectGopsutilGauge
+			for name, value := range m {
+				metricChan <- models.Metrics{
+					ID:    name,
+					Value: &value,
+					MType: models.Gauge,
+				}
 			}
 		}
 	}
 }
+
 func runSender(
 	ctx context.Context,
-	id int,
-	jobs <-chan []models.Metrics,
 	client *agent.Client,
-	batchUpdate bool,
-	logger *zap.SugaredLogger,
+	f *flags,
+	metricChan <-chan models.Metrics,
 ) {
+	ticker := time.NewTicker(time.Duration(f.ReportInterval) * time.Second)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case batch, ok := <-jobs:
-			if !ok {
-				return
-			}
 
-			if batchUpdate {
-				if err := client.UpdateMetrics(batch); err != nil {
-					logger.Error(fmt.Sprintf("worker %d: UpdateMetrics error: %v", id, err))
+		case <-ticker.C:
+			if f.BatchUpdate {
+				var batch []models.Metrics
+
+			drainBatch:
+				for {
+					select {
+					case m, ok := <-metricChan:
+						if !ok {
+							if len(batch) > 0 {
+								client.UpdateMetrics(batch)
+							}
+							return
+						}
+						batch = append(batch, m)
+
+					default:
+						if len(batch) > 0 {
+							client.UpdateMetrics(batch)
+						}
+						break drainBatch
+					}
 				}
 			} else {
-				for _, m := range batch {
-					if err := client.UpdateMetric(m); err != nil {
-						logger.Error(fmt.Sprintf("worker %d: UpdateMetric error: %v", id, err))
+			drainSingle:
+				for {
+					select {
+					case m, ok := <-metricChan:
+						if !ok {
+							return
+						}
+						client.UpdateMetric(m)
+
+					default:
+						break drainSingle
 					}
 				}
 			}
