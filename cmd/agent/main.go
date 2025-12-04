@@ -1,72 +1,124 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"metrify/internal/agent"
 	models "metrify/internal/model"
 	"metrify/internal/service"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
 func main() {
-	var (
-		pollCount   int64
-		gauges      map[string]float64
-		lastReport  = time.Now()
-		metricBatch []models.Metrics
-	)
 	f := parseFlags()
+	metricChan := make(chan models.Metrics)
 	normalizedHost := normalizeHost(f.Host)
-	metric := models.Metrics{}
 	logger := service.NewLogger()
 	client := agent.NewClient(normalizedHost, logger, f.Key)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go runRuntimeCollector(ctx, time.Duration(f.PollInterval)*time.Second, metricChan)
+	go runGopsutilCollector(ctx, time.Duration(f.PollInterval)*time.Second, metricChan)
+
+	for i := 0; i < f.RateLimit; i++ {
+		go runSender(ctx, client, f, metricChan)
+	}
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
+	<-sigCh
+	cancel()
+	close(metricChan)
+}
+
+func runRuntimeCollector(
+	ctx context.Context,
+	pollInterval time.Duration,
+	metricChan chan<- models.Metrics,
+) {
+	ticker := time.NewTicker(pollInterval)
+	pollCounter := int64(0)
 
 	for {
-		time.Sleep(time.Duration(f.PollInterval) * time.Second)
-
-		gauges = agent.CollectGauge()
-		pollCount++
-
-		if time.Since(lastReport) >= time.Duration(f.ReportInterval)*time.Second {
-			for key, val := range gauges {
-				metric.ID = key
-				metric.Value = &val
-				metric.MType = models.Gauge
-
-				if f.BatchUpdate {
-					metricBatch = append(metricBatch, metric)
-				} else {
-					err := client.UpdateMetric(metric)
-					if err != nil {
-						logger.Error(err.Error())
-					}
+		select {
+		case <-ctx.Done():
+			close(metricChan)
+			return
+		case <-ticker.C:
+			m := agent.CollectGauge()
+			for name, value := range m {
+				metricChan <- models.Metrics{
+					ID:    name,
+					Value: &value,
+					MType: models.Gauge,
 				}
 			}
+			pollCounter++
+			metricChan <- models.Metrics{
+				ID:    "PollCount",
+				Delta: &pollCounter,
+				MType: models.Counter,
+			}
+		}
+	}
+}
 
-			metric.ID = "PollCount"
-			metric.Delta = &pollCount
-			metric.MType = models.Counter
+func runGopsutilCollector(
+	ctx context.Context,
+	pollInterval time.Duration,
+	metricChan chan<- models.Metrics,
+) {
+	ticker := time.NewTicker(pollInterval)
 
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			m := agent.CollectGauge()
+			for name, value := range m {
+				metricChan <- models.Metrics{
+					ID:    name,
+					Value: &value,
+					MType: models.Gauge,
+				}
+			}
+		}
+	}
+}
+
+func runSender(
+	ctx context.Context,
+	client *agent.Client,
+	f *flags,
+	metricChan <-chan models.Metrics,
+) {
+	ticker := time.NewTicker(time.Duration(f.ReportInterval) * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case <-ticker.C:
 			if f.BatchUpdate {
-				metricBatch = append(metricBatch, metric)
+				var batch []models.Metrics
+				for m := range metricChan {
+					batch = append(batch, m)
+				}
+
+				client.UpdateMetrics(batch)
+				batch = nil
 			} else {
-				err := client.UpdateMetric(metric)
-				if err != nil {
-					logger.Error(err.Error())
+				for m := range metricChan {
+					client.UpdateMetric(m)
 				}
-			}
-
-			lastReport = time.Now()
-
-			if f.BatchUpdate {
-				err := client.UpdateMetrics(metricBatch)
-
-				if err != nil {
-					logger.Error(err.Error())
-				}
-
-				metricBatch = metricBatch[:0]
 			}
 		}
 	}

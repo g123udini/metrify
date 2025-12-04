@@ -22,7 +22,7 @@ type Client struct {
 func NewClient(host string, logger *zap.SugaredLogger, hashKey string) *Client {
 	return &Client{
 		logger:   logger,
-		resty:    resty.New(),
+		resty:    resty.New().SetTimeout(15 * time.Second),
 		host:     host,
 		hashKey:  hashKey,
 		maxRetry: 3,
