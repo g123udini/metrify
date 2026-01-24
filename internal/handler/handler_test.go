@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
+	"metrify/internal/audit"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -27,7 +28,8 @@ func newTestStorage() *service.MemStorage {
 func newTestHandler() (*Handler, *service.MemStorage) {
 	ms := newTestStorage()
 	logger := zap.NewNop().Sugar()
-	h := NewHandler(ms, logger, nil, false, "")
+	p := audit.NewPublisher()
+	h := NewHandler(ms, logger, nil, p, false, "")
 	return h, ms
 }
 

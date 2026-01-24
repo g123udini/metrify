@@ -10,6 +10,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 	"log"
+	"metrify/internal/audit"
 	"metrify/internal/handler"
 	"metrify/internal/router"
 	"metrify/internal/service"
@@ -43,14 +44,19 @@ func main() {
 }
 
 func run(ms *service.MemStorage, db *sql.DB, logger *zap.SugaredLogger, f *flags) error {
+	f.RunAddr = normalizeAddr(f.RunAddr)
 	fmt.Println("Running server on", f.RunAddr)
-	if h, p, err := net.SplitHostPort(f.RunAddr); err == nil {
-		if h == "localhost" || h == "" {
-			f.RunAddr = ":" + p
-		}
-	}
 
-	h := handler.NewHandler(ms, logger, db, f.StoreInterval == 0, f.Key)
+	auditPublisher := initAuditPublisher(f)
+
+	h := handler.NewHandler(
+		ms,
+		logger,
+		db,
+		auditPublisher,
+		f.StoreInterval == 0,
+		f.Key,
+	)
 
 	return http.ListenAndServe(f.RunAddr, router.Metric(h))
 }
@@ -129,4 +135,30 @@ func isValidPostgresDSN(dsn string) bool {
 	}
 
 	return true
+}
+
+func normalizeAddr(addr string) string {
+	if h, p, err := net.SplitHostPort(addr); err == nil {
+		if h == "localhost" || h == "" {
+			return ":" + p
+		}
+	}
+	return addr
+}
+
+func initAuditPublisher(f *flags) *audit.Publisher {
+	p := audit.NewPublisher()
+
+	if f.AuditFile != "" {
+		p.Add(audit.NewFileReceiver(f.AuditFile))
+	}
+
+	if f.AuditURL != "" {
+		p.Add(audit.NewHTTPReceiver(
+			f.AuditURL,
+			&http.Client{Timeout: 3 * time.Second},
+		))
+	}
+
+	return p
 }

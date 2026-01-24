@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"metrify/internal/audit"
 	"metrify/internal/handler"
 	"metrify/internal/service"
 	"net/http"
@@ -63,8 +64,9 @@ func TestMetric(t *testing.T) {
 	defer os.Remove(filepath)
 	ms := service.NewMemStorage(filepath, db)
 	logger := service.NewLogger()
+	p := audit.NewPublisher()
 
-	h := handler.NewHandler(ms, logger, db, true, "")
+	h := handler.NewHandler(ms, logger, db, p, true, "")
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()
 

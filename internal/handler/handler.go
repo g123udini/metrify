@@ -8,8 +8,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"io"
+	"metrify/internal/audit"
 	models "metrify/internal/model"
 	"metrify/internal/service"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,16 +22,18 @@ type Handler struct {
 	ms                 service.Storage
 	logger             *zap.SugaredLogger
 	db                 *sql.DB
+	audit              *audit.Publisher
 	dumpToFile         bool
 	AllowedContentType string
 	Key                string
 }
 
-func NewHandler(ms service.Storage, logger *zap.SugaredLogger, db *sql.DB, dump bool, key string) *Handler {
+func NewHandler(ms service.Storage, logger *zap.SugaredLogger, db *sql.DB, audit *audit.Publisher, dump bool, key string) *Handler {
 	return &Handler{
 		ms:                 ms,
 		logger:             logger,
 		db:                 db,
+		audit:              audit,
 		dumpToFile:         dump,
 		AllowedContentType: "text/plain",
 		Key:                key,
@@ -132,6 +136,8 @@ func (handler *Handler) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	handler.auditMetrics(r, []string{metric.ID})
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status": "ok"}`))
@@ -143,12 +149,15 @@ func (handler *Handler) UpdateMetricsBatch(w http.ResponseWriter, r *http.Reques
 	var err error = nil
 	var errs []error
 	defer r.Body.Close()
+	names := make([]string, 0, len(metrics))
 
 	if err = dec.Decode(&metrics); err != nil {
 		handler.logger.Debug("Error decoding JSON", zap.Error(err))
 	}
 
 	for _, metric := range metrics {
+		names = append(names, metric.ID)
+
 		if metric.MType == models.Gauge {
 			err = handler.ms.UpdateGauge(metric.ID, *metric.Value)
 
@@ -173,6 +182,8 @@ func (handler *Handler) UpdateMetricsBatch(w http.ResponseWriter, r *http.Reques
 		})
 		return
 	}
+
+	handler.auditMetrics(r, names)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -318,4 +329,29 @@ func (handler *Handler) Ping(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status": "ok"}`))
+}
+
+func (handler *Handler) auditMetrics(r *http.Request, metricNames []string) {
+	if handler.audit == nil || !handler.audit.Enabled() || len(metricNames) == 0 {
+		return
+	}
+
+	ip := clientIP(r)
+	ev := audit.NewEvent(metricNames, ip)
+
+	if err := handler.audit.Publish(r.Context(), ev); err != nil {
+		handler.logger.Warn("audit publish error", zap.Error(err))
+	}
+}
+
+func clientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		return strings.TrimSpace(parts[0])
+	}
+	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
+	if err == nil && host != "" {
+		return host
+	}
+	return strings.TrimSpace(r.RemoteAddr)
 }
