@@ -12,7 +12,7 @@ import (
 
 type FileReceiver struct {
 	path string
-	mu   sync.Mutex // на случай параллельных запросов
+	mu   sync.Mutex
 }
 
 func NewFileReceiver(path string) *FileReceiver {
@@ -23,7 +23,7 @@ func NewFileReceiver(path string) *FileReceiver {
 }
 
 func (r *FileReceiver) Receive(ctx context.Context, e Event) error {
-	_ = ctx // файл не зависит от ctx, но интерфейс единый
+	_ = ctx
 
 	b, err := json.Marshal(e)
 	if err != nil {

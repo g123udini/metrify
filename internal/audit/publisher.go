@@ -49,7 +49,7 @@ func (p *Publisher) Enabled() bool {
 
 func (p *Publisher) Publish(ctx context.Context, e Event) error {
 	p.mu.RLock()
-	rs := append([]Receiver(nil), p.receivers...) // копия
+	rs := append([]Receiver(nil), p.receivers...)
 	p.mu.RUnlock()
 
 	if len(rs) == 0 {
