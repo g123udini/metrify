@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -12,12 +13,15 @@ import (
 	"log"
 	"metrify/internal/audit"
 	"metrify/internal/handler"
+	"metrify/internal/pprof"
 	"metrify/internal/router"
 	"metrify/internal/service"
 	"net"
 	"net/http"
 	"net/url"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -26,6 +30,8 @@ func main() {
 	db := initDB(f.Dsn)
 	ms := service.NewMemStorage(f.FileStorePath, db)
 	logger := service.NewLogger()
+	ctx := context.Background()
+	suspendCtx, _ := signal.NotifyContext(ctx, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	if f.Restore {
 		err := ms.ReadFromFile(f.FileStorePath)
@@ -36,6 +42,7 @@ func main() {
 	}
 
 	go runMetricDumper(ms, f)
+	go pprof.ListenSignals(suspendCtx, logger, f.CPUProfileFile, f.CPUProfileDuration, f.MemProfileFile)
 	err := run(ms, db, logger, f)
 
 	if err != nil {
