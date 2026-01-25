@@ -10,6 +10,10 @@ import (
 	"sync"
 )
 
+type Receiver interface {
+	Receive(ctx context.Context, e Event) error
+}
+
 type FileReceiver struct {
 	path string
 	mu   sync.Mutex

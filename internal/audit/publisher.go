@@ -13,10 +13,6 @@ type Event struct {
 	IPAddress string   `json:"ip_address"`
 }
 
-type Receiver interface {
-	Receive(ctx context.Context, e Event) error
-}
-
 type Publisher struct {
 	mu        sync.RWMutex
 	receivers []Receiver
