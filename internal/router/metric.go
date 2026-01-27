@@ -1,8 +1,23 @@
+// Package router содержит HTTP-роуты сервиса metrify.
 package router
 
+// Metric возвращает chi.Router с зарегистрированными middleware и эндпоинтами метрик.
+//
+// Маршруты:
+//   GET  /           - info
+//   GET  /ping       - db ping
+//   POST /updates/   - batch update (JSON)
+//   POST /update/    - update (JSON)
+//   POST /update/counter/{name}/{value} - update counter (text/plain)
+//   POST /update/gauge/{name}/{value}   - update gauge (text/plain)
+//   POST /value/     - get metric by body (JSON)
+//   GET  /value/counter/{name}          - get counter (text/plain)
+//   GET  /value/gauge/{name}            - get gauge (text/plain)
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	httpSwagger "github.com/swaggo/http-swagger"
+	_ "metrify/docs"
 	"metrify/internal/handler"
 )
 
@@ -13,6 +28,7 @@ func Metric(handler *handler.Handler) chi.Router {
 	r.Use(handler.WithRequestCompress)
 	r.Use(handler.WithResponseCompress)
 	r.Use(handler.WithHashedRequest)
+	r.Get("/swagger/*", httpSwagger.WrapHandler)
 
 	update(r, handler)
 	get(r, handler)

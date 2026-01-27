@@ -25,6 +25,11 @@ import (
 	"time"
 )
 
+// @title           Metrify API
+// @version         1.0
+// @description     Metrics collection service API.
+// @BasePath        /
+// @schemes         http
 func main() {
 	f := parseFlags()
 	db := initDB(f.Dsn)
