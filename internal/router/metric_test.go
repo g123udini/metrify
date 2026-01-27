@@ -159,7 +159,7 @@ func ExampleMetric_getCounter() {
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()
 
-	_, err := ts.Client().Post(
+	resp1, err := ts.Client().Post(
 		ts.URL+"/update/counter/Test/10",
 		"text/plain",
 		nil,
@@ -168,6 +168,7 @@ func ExampleMetric_getCounter() {
 		fmt.Println("request error")
 		return
 	}
+	_ = resp1.Body.Close()
 
 	resp, err := ts.Client().Get(ts.URL + "/value/counter/Test")
 	if err != nil {
