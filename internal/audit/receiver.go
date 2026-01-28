@@ -27,8 +27,6 @@ func NewFileReceiver(path string) *FileReceiver {
 }
 
 func (r *FileReceiver) Receive(ctx context.Context, e Event) error {
-	_ = ctx
-
 	b, err := json.Marshal(e)
 	if err != nil {
 		return err
@@ -42,6 +40,10 @@ func (r *FileReceiver) Receive(ctx context.Context, e Event) error {
 		return err
 	}
 	defer f.Close()
+
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
 
 	if _, err := f.Write(append(b, '\n')); err != nil {
 		return err

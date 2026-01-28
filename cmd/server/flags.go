@@ -9,7 +9,7 @@ import (
 
 type flags struct {
 	RunAddr            string        `env:"ADDRESS"`
-	StoreInterval      int           `env:"STORE_ITERVAL"`
+	StoreInterval      int           `env:"STORE_INTERVAL"`
 	FileStorePath      string        `env:"FILE_STORE_PATH"`
 	Restore            bool          `env:"RESTORE"`
 	Dsn                string        `env:"DATABASE_DSN"`
