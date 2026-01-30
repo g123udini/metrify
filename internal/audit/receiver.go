@@ -27,28 +27,38 @@ func NewFileReceiver(path string) *FileReceiver {
 }
 
 func (r *FileReceiver) Receive(ctx context.Context, e Event) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	b, err := json.Marshal(e)
+
 	if err != nil {
 		return err
 	}
 
 	r.mu.Lock()
+
 	defer r.mu.Unlock()
 
+	if err := ctx.Err(); err != nil { // отмена пока ждали lock
+		return err
+	}
+
 	f, err := os.OpenFile(r.path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
-
-	if _, err := f.Write(append(b, '\n')); err != nil {
+	if err := ctx.Err(); err != nil { // отмена перед записью
 		return err
 	}
-	return nil
+
+	_, err = f.Write(append(b, '\n'))
+
+	return err
 }
 
 type HTTPReceiver struct {

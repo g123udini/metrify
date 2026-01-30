@@ -36,7 +36,8 @@ func main() {
 	ms := service.NewMemStorage(f.FileStorePath, db)
 	logger := service.NewLogger()
 	ctx := context.Background()
-	suspendCtx, _ := signal.NotifyContext(ctx, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	suspendCtx, cancel := signal.NotifyContext(ctx, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	defer cancel()
 
 	if f.Restore {
 		err := ms.ReadFromFile(f.FileStorePath)
