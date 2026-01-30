@@ -2,8 +2,11 @@ package router
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"io"
+	"metrify/internal/audit"
 	"metrify/internal/handler"
 	"metrify/internal/service"
 	"net/http"
@@ -63,8 +66,9 @@ func TestMetric(t *testing.T) {
 	defer os.Remove(filepath)
 	ms := service.NewMemStorage(filepath, db)
 	logger := service.NewLogger()
+	p := audit.NewPublisher()
 
-	h := handler.NewHandler(ms, logger, db, true, "")
+	h := handler.NewHandler(ms, logger, db, p, true, "")
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()
 
@@ -89,4 +93,117 @@ func testRequest(t *testing.T, ts *httptest.Server, method,
 	t.Logf("value = %+v", req)
 
 	return resp
+}
+
+func ExampleMetric_updateCounter() {
+	ms := service.NewMemStorage("", nil)
+	logger := service.NewLogger()
+	h := handler.NewHandler(ms, logger, nil, nil, false, "")
+
+	ts := httptest.NewServer(Metric(h))
+	defer ts.Close()
+
+	req, err := http.NewRequest(
+		http.MethodPost,
+		ts.URL+"/update/counter/PollInterval/22",
+		nil,
+	)
+	if err != nil {
+		fmt.Println("request error")
+		return
+	}
+
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		fmt.Println("request error")
+		return
+	}
+	defer resp.Body.Close()
+
+	fmt.Println(resp.StatusCode)
+}
+
+func ExampleMetric_updateGauge() {
+	ms := service.NewMemStorage("", nil)
+	logger := service.NewLogger()
+	h := handler.NewHandler(ms, logger, nil, nil, false, "")
+
+	ts := httptest.NewServer(Metric(h))
+	defer ts.Close()
+
+	req, err := http.NewRequest(
+		http.MethodPost,
+		ts.URL+"/update/gauge/Alloc/22.5",
+		nil,
+	)
+	if err != nil {
+		fmt.Println("request error")
+		return
+	}
+
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		fmt.Println("request error")
+		return
+	}
+	defer resp.Body.Close()
+
+	fmt.Println(resp.StatusCode)
+}
+
+func ExampleMetric_getCounter() {
+	ms := service.NewMemStorage("", nil)
+	logger := service.NewLogger()
+	h := handler.NewHandler(ms, logger, nil, nil, false, "")
+
+	ts := httptest.NewServer(Metric(h))
+	defer ts.Close()
+
+	resp1, err := ts.Client().Post(
+		ts.URL+"/update/counter/Test/10",
+		"text/plain",
+		nil,
+	)
+	if err != nil {
+		fmt.Println("request error")
+		return
+	}
+	_ = resp1.Body.Close()
+
+	resp, err := ts.Client().Get(ts.URL + "/value/counter/Test")
+	if err != nil {
+		fmt.Println("request error")
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("read error")
+		return
+	}
+
+	fmt.Println(string(body))
+}
+
+func ExampleMetric_invalidMetric() {
+	ms := service.NewMemStorage("", nil)
+	logger := service.NewLogger()
+	h := handler.NewHandler(ms, logger, nil, nil, false, "")
+
+	ts := httptest.NewServer(Metric(h))
+	defer ts.Close()
+
+	resp, err := ts.Client().Post(
+		ts.URL+"/update/unknown/Test/10",
+		"text/plain",
+		nil,
+	)
+	if err != nil {
+		fmt.Println("request error")
+		return
+	}
+	defer resp.Body.Close()
+
+	fmt.Println(resp.StatusCode)
 }
