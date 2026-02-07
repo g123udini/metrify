@@ -1,0 +1,259 @@
+basePath: /
+definitions:
+  metrify_internal_model.Metrics:
+    properties:
+      delta:
+        type: integer
+      hash:
+        type: string
+      id:
+        type: string
+      type:
+        type: string
+      value:
+        type: number
+    type: object
+info:
+  contact: {}
+  description: Metrics collection service API.
+  title: Metrify API
+  version: "1.0"
+paths:
+  /:
+    get:
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Service info
+      tags:
+      - system
+  /ping:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Database ping
+      tags:
+      - system
+  /update/:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Metric payload
+        in: body
+        name: metric
+        required: true
+        schema:
+          $ref: '#/definitions/metrify_internal_model.Metrics'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Update metric via JSON
+      tags:
+      - metrics
+  /update/{type}/{name}/{value}:
+    post:
+      responses:
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Invalid metric type
+      tags:
+      - metrics
+  /update/counter/{name}/{value}:
+    post:
+      consumes:
+      - text/plain
+      parameters:
+      - description: Metric name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Delta value
+        format: int64
+        in: path
+        name: value
+        required: true
+        type: integer
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Update counter (plain)
+      tags:
+      - metrics
+  /update/gauge/{name}/{value}:
+    post:
+      consumes:
+      - text/plain
+      parameters:
+      - description: Metric name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Gauge value
+        in: path
+        name: value
+        required: true
+        type: number
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Update gauge (plain)
+      tags:
+      - metrics
+  /updates/:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Metrics array
+        in: body
+        name: metrics
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/metrify_internal_model.Metrics'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Batch update metrics
+      tags:
+      - metrics
+  /value/:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Metric request
+        in: body
+        name: metric
+        required: true
+        schema:
+          $ref: '#/definitions/metrify_internal_model.Metrics'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/metrify_internal_model.Metrics'
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: Get metric by JSON body
+      tags:
+      - metrics
+  /value/{type}/{name}:
+    get:
+      responses:
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Invalid metric type
+      tags:
+      - metrics
+  /value/counter/{name}:
+    get:
+      parameters:
+      - description: Metric name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: Get counter value
+      tags:
+      - metrics
+  /value/gauge/{name}:
+    get:
+      parameters:
+      - description: Metric name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: Get gauge value
+      tags:
+      - metrics
+schemes:
+- http
+swagger: "2.0"

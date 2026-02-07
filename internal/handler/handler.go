@@ -8,8 +8,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"io"
+	"metrify/internal/audit"
 	models "metrify/internal/model"
 	"metrify/internal/service"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,22 +22,32 @@ type Handler struct {
 	ms                 service.Storage
 	logger             *zap.SugaredLogger
 	db                 *sql.DB
+	audit              *audit.Publisher
 	dumpToFile         bool
 	AllowedContentType string
 	Key                string
 }
 
-func NewHandler(ms service.Storage, logger *zap.SugaredLogger, db *sql.DB, dump bool, key string) *Handler {
+func NewHandler(ms service.Storage, logger *zap.SugaredLogger, db *sql.DB, audit *audit.Publisher, dump bool, key string) *Handler {
 	return &Handler{
 		ms:                 ms,
 		logger:             logger,
 		db:                 db,
+		audit:              audit,
 		dumpToFile:         dump,
 		AllowedContentType: "text/plain",
 		Key:                key,
 	}
 }
 
+// GetGauge godoc
+// @Summary      Get gauge value
+// @Tags         metrics
+// @Produce      plain
+// @Param        name path string true "Metric name"
+// @Success      200 {string} string
+// @Failure      404 {string} string
+// @Router       /value/gauge/{name} [get]
 func (handler *Handler) GetGauge(w http.ResponseWriter, r *http.Request) {
 	metricName := chi.URLParam(r, "name")
 
@@ -52,6 +64,14 @@ func (handler *Handler) GetGauge(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(data))
 }
 
+// GetCounter godoc
+// @Summary      Get counter value
+// @Tags         metrics
+// @Produce      plain
+// @Param        name path string true "Metric name"
+// @Success      200 {string} string
+// @Failure      404 {string} string
+// @Router       /value/counter/{name} [get]
 func (handler *Handler) GetCounter(w http.ResponseWriter, r *http.Request) {
 	metricName := chi.URLParam(r, "name")
 
@@ -68,6 +88,15 @@ func (handler *Handler) GetCounter(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(data))
 }
 
+// GetMetrics godoc
+// @Summary      Get metric by JSON body
+// @Tags         metrics
+// @Accept       json
+// @Produce      json
+// @Param        metric body models.Metrics true "Metric request"
+// @Success      200 {object} models.Metrics
+// @Failure      404 {string} string
+// @Router       /value/ [post]
 func (handler *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	metric := models.Metrics{}
@@ -104,6 +133,15 @@ func (handler *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// UpdateMetrics godoc
+// @Summary      Update metric via JSON
+// @Tags         metrics
+// @Accept       json
+// @Produce      json
+// @Param        metric body models.Metrics true "Metric payload"
+// @Success      200 {object} map[string]string
+// @Failure      400 {string} string
+// @Router       /update/ [post]
 func (handler *Handler) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	metric := models.Metrics{}
@@ -132,23 +170,37 @@ func (handler *Handler) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	handler.auditMetrics(r, []string{metric.ID})
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status": "ok"}`))
 }
 
+// UpdateMetricsBatch godoc
+// @Summary      Batch update metrics
+// @Tags         metrics
+// @Accept       json
+// @Produce      json
+// @Param        metrics body []models.Metrics true "Metrics array"
+// @Success      200 {object} map[string]string
+// @Failure      400 {object} map[string]any
+// @Router       /updates/ [post]
 func (handler *Handler) UpdateMetricsBatch(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	var metrics []models.Metrics
 	var err error = nil
 	var errs []error
 	defer r.Body.Close()
+	names := make([]string, 0, len(metrics))
 
 	if err = dec.Decode(&metrics); err != nil {
 		handler.logger.Debug("Error decoding JSON", zap.Error(err))
 	}
 
 	for _, metric := range metrics {
+		names = append(names, metric.ID)
+
 		if metric.MType == models.Gauge {
 			err = handler.ms.UpdateGauge(metric.ID, *metric.Value)
 
@@ -174,11 +226,23 @@ func (handler *Handler) UpdateMetricsBatch(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	handler.auditMetrics(r, names)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status": "ok"}`))
 }
 
+// UpdateGauge godoc
+// @Summary      Update gauge (plain)
+// @Tags         metrics
+// @Accept       plain
+// @Produce      plain
+// @Param        name  path string  true "Metric name"
+// @Param        value path number  true "Gauge value"
+// @Success      200 {string} string
+// @Failure      400 {string} string
+// @Router       /update/gauge/{name}/{value} [post]
 func (handler *Handler) UpdateGauge(w http.ResponseWriter, r *http.Request) {
 	metricName := chi.URLParam(r, "name")
 	metricValue, err := strconv.ParseFloat(chi.URLParam(r, "value"), 64)
@@ -191,6 +255,16 @@ func (handler *Handler) UpdateGauge(w http.ResponseWriter, r *http.Request) {
 	handler.ms.UpdateGauge(metricName, metricValue)
 }
 
+// UpdateCounter godoc
+// @Summary      Update counter (plain)
+// @Tags         metrics
+// @Accept       plain
+// @Produce      plain
+// @Param        name  path string true "Metric name"
+// @Param        value path int64  true "Delta value"
+// @Success      200 {string} string
+// @Failure      400 {string} string
+// @Router       /update/counter/{name}/{value} [post]
 func (handler *Handler) UpdateCounter(w http.ResponseWriter, r *http.Request) {
 	metricName := chi.URLParam(r, "name")
 	metricValue, err := strconv.ParseInt(chi.URLParam(r, "value"), 10, 64)
@@ -205,8 +279,53 @@ func (handler *Handler) UpdateCounter(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// InvalidMetricHandler godoc
+// @Summary      Invalid metric type
+// @Tags         metrics
+// @Failure      400 {string} string
+// @Router       /update/{type}/{name}/{value} [post]
+// @Router       /value/{type}/{name} [get]
 func (handler *Handler) InvalidMetricHandler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "invalid metric type (expect counter|gauge)", http.StatusBadRequest)
+}
+
+// GetInfo godoc
+// @Summary      Service info
+// @Tags         system
+// @Produce      html
+// @Success      200 {string} string
+// @Router       / [get]
+func (handler *Handler) GetInfo(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("OK"))
+}
+
+// Ping godoc
+// @Summary      Database ping
+// @Tags         system
+// @Produce      json
+// @Success      200 {object} map[string]string
+// @Failure      500 {string} string
+// @Router       /ping [get]
+func (handler *Handler) Ping(w http.ResponseWriter, r *http.Request) {
+	if handler.db == nil {
+		http.Error(w, "database is not initialized", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if err := handler.db.PingContext(ctx); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status": "ok"}`))
 }
 
 func (handler *Handler) WithLogging(h http.Handler) http.Handler {
@@ -294,28 +413,27 @@ func (handler *Handler) WithHashedRequest(h http.Handler) http.Handler {
 	})
 }
 
-func (handler *Handler) GetInfo(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("OK"))
+func (handler *Handler) auditMetrics(r *http.Request, metricNames []string) {
+	if handler.audit == nil || !handler.audit.Enabled() || len(metricNames) == 0 {
+		return
+	}
+
+	ip := clientIP(r)
+	ev := audit.NewEvent(metricNames, ip)
+
+	if err := handler.audit.Publish(r.Context(), ev); err != nil {
+		handler.logger.Warn("audit publish error", zap.Error(err))
+	}
 }
 
-func (handler *Handler) Ping(w http.ResponseWriter, r *http.Request) {
-	if handler.db == nil {
-		http.Error(w, "database is not initialized", http.StatusInternalServerError)
-		return
+func clientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		return strings.TrimSpace(parts[0])
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	if err := handler.db.PingContext(ctx); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-
-		return
+	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
+	if err == nil && host != "" {
+		return host
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status": "ok"}`))
+	return strings.TrimSpace(r.RemoteAddr)
 }
