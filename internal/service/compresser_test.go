@@ -16,9 +16,7 @@ type mockReadCloser struct {
 	closed bool
 }
 
-func (m *mockReadCloser) Read(p []byte) (int, error) {
-	return m.Reader.Read(p)
-}
+func (m *mockReadCloser) Read(p []byte) (int, error) { return m.Reader.Read(p) }
 
 func (m *mockReadCloser) Close() error {
 	m.closed = true
@@ -87,7 +85,7 @@ func TestCompressWriter_FullFlow_WriteAndClose(t *testing.T) {
 	if err != nil {
 		t.Fatalf("gzip.NewReader error: %v", err)
 	}
-	defer gzr.Close()
+	defer func() { _ = gzr.Close() }()
 
 	decoded, err := io.ReadAll(gzr)
 	if err != nil {
@@ -114,8 +112,8 @@ func TestNewCompressReader_Success(t *testing.T) {
 	// готовим gzipped данные
 	var buf bytes.Buffer
 	gzw := gzip.NewWriter(&buf)
-	_, err := gzw.Write([]byte("hello"))
-	if err != nil {
+
+	if _, err := gzw.Write([]byte("hello")); err != nil {
 		t.Fatalf("gzip.Write error: %v", err)
 	}
 	if err := gzw.Close(); err != nil {
@@ -161,6 +159,7 @@ func TestCompressReader_Read(t *testing.T) {
 	// gzipped "test-data"
 	var buf bytes.Buffer
 	gzw := gzip.NewWriter(&buf)
+
 	if _, err := gzw.Write([]byte("test-data")); err != nil {
 		t.Fatalf("gzip.Write error: %v", err)
 	}
@@ -173,12 +172,12 @@ func TestCompressReader_Read(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewCompressReader error: %v", err)
 	}
-	defer cr.Close()
+	defer func() { _ = cr.Close() }()
 
 	p := make([]byte, 4)
-	n, err := cr.Read(p)
-	if err != nil && err != io.EOF {
-		t.Fatalf("Read error: %v", err)
+	n, readErr := cr.Read(p)
+	if readErr != nil && readErr != io.EOF {
+		t.Fatalf("Read error: %v", readErr)
 	}
 
 	if n == 0 {
@@ -218,7 +217,7 @@ func TestNewCompressWriter_IntegrationWithHTTP(t *testing.T) {
 	// мини-интеграционный тест: handler, который пишет gzipped ответ
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		cw := NewCompressWriter(w)
-		defer cw.Close()
+		defer func() { _ = cw.Close() }()
 
 		cw.WriteHeader(http.StatusOK)
 		_, _ = cw.Write([]byte("ping"))
@@ -237,7 +236,7 @@ func TestNewCompressWriter_IntegrationWithHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("gzip.NewReader error: %v", err)
 	}
-	defer gzr.Close()
+	defer func() { _ = gzr.Close() }()
 
 	data, err := io.ReadAll(gzr)
 	if err != nil {
