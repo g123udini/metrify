@@ -14,6 +14,7 @@ type Receiver interface {
 	Receive(ctx context.Context, e Event) error
 }
 
+// generate:reset
 type FileReceiver struct {
 	path string
 	mu   sync.Mutex
@@ -61,6 +62,7 @@ func (r *FileReceiver) Receive(ctx context.Context, e Event) error {
 	return err
 }
 
+// generate:reset
 type HTTPReceiver struct {
 	url    string
 	client *http.Client

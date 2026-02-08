@@ -7,12 +7,14 @@ import (
 	"time"
 )
 
+// generate:reset
 type Event struct {
 	TS        int64    `json:"ts"`
 	Metrics   []string `json:"metrics"`
 	IPAddress string   `json:"ip_address"`
 }
 
+// generate:reset
 type Publisher struct {
 	mu        sync.RWMutex
 	receivers []Receiver

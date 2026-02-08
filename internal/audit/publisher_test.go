@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// generate:reset
 type spyReceiver struct {
 	calls int
 	last  Event

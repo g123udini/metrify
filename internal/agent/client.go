@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// generate:reset
 type Client struct {
 	logger   *zap.SugaredLogger
 	resty    *resty.Client
