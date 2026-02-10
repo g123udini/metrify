@@ -14,7 +14,14 @@ import (
 	"time"
 )
 
+var (
+	BuildVersion = "N/A"
+	BuildTime    = "N/A"
+	BuildCommit  = "N/A"
+)
+
 func main() {
+	fmt.Printf("version=%s, time=%s\n, commit=%s\n", BuildVersion, BuildTime, BuildCommit)
 	f := parseFlags()
 	metricChan := make(chan models.Metrics, 1000) // буфер, чтобы коллекторы не стопорились
 	normalizedHost := normalizeHost(f.Host)

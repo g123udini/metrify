@@ -25,12 +25,19 @@ import (
 	"time"
 )
 
+var (
+	BuildVersion = "N/A"
+	BuildTime    = "N/A"
+	BuildCommit  = "N/A"
+)
+
 // @title           Metrify API
 // @version         1.0
 // @description     Metrics collection service API.
 // @BasePath        /
 // @schemes         http
 func main() {
+	fmt.Printf("version=%s, time=%s\n, commit=%s\n", BuildVersion, BuildTime, BuildCommit)
 	f := parseFlags()
 	db := initDB(f.Dsn)
 	ms := service.NewMemStorage(f.FileStorePath, db)
