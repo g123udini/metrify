@@ -6,6 +6,7 @@ import (
 	"log"
 )
 
+// generate:reset
 type flags struct {
 	Host           string `env:"ADDRESS"`
 	PollInterval   int    `env:"POLL_INTERVAL"`
