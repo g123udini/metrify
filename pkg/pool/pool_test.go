@@ -1,4 +1,4 @@
-package service
+package pool
 
 import (
 	"sync"
@@ -23,13 +23,13 @@ func TestNew_NilFactoryPanics(t *testing.T) {
 		}
 	}()
 
-	_ = New[*testObj](nil)
+	_, _ = New[*testObj](nil)
 }
 
 func TestPool_Get_ReturnsFromFactory(t *testing.T) {
 	var created int32
 
-	p := New(func() *testObj {
+	p, _ := New(func() *testObj {
 		atomic.AddInt32(&created, 1)
 		return &testObj{value: 123}
 	})
@@ -52,7 +52,7 @@ func TestPool_Get_ReturnsFromFactory(t *testing.T) {
 }
 
 func TestPool_Put_CallsReset(t *testing.T) {
-	p := New(func() *testObj { return &testObj{} })
+	p, _ := New(func() *testObj { return &testObj{} })
 
 	obj := &testObj{value: 777}
 	p.Put(obj)
@@ -67,7 +67,7 @@ func TestPool_Put_CallsReset(t *testing.T) {
 
 func TestPool_Concurrent_GetPut(t *testing.T) {
 	var created int32
-	p := New(func() *testObj {
+	p, _ := New(func() *testObj {
 		atomic.AddInt32(&created, 1)
 		return &testObj{}
 	})

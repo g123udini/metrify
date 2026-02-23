@@ -10,6 +10,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"log"
 	"metrify/internal/audit"
 	"metrify/internal/handler"
@@ -38,32 +39,44 @@ var (
 // @schemes         http
 func main() {
 	fmt.Printf("version=%s, time=%s\n, commit=%s\n", BuildVersion, BuildTime, BuildCommit)
+
 	f := parseFlags()
+
 	db := initDB(f.Dsn)
 	ms := service.NewMemStorage(f.FileStorePath, db)
 	logger := service.NewLogger()
-	ctx := context.Background()
-	suspendCtx, cancel := signal.NotifyContext(ctx, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	rootCtx := context.Background()
+	ctx, cancel := signal.NotifyContext(rootCtx, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()
 
 	if f.Restore {
-		err := ms.ReadFromFile(f.FileStorePath)
-
-		if err != nil {
+		if err := ms.ReadFromFile(f.FileStorePath); err != nil {
 			log.Printf("could not read from file store: %v", err)
 		}
 	}
 
-	go runMetricDumper(ms, f)
-	go pprof.ListenSignals(suspendCtx, logger, f.CPUProfileFile, f.CPUProfileDuration, f.MemProfileFile)
-	err := run(ms, db, logger, f)
+	g, ctx := errgroup.WithContext(ctx)
 
-	if err != nil {
-		log.Fatal(err.Error())
+	g.Go(func() error {
+		return runMetricDumper(ctx, ms, f)
+	})
+
+	g.Go(func() error {
+		pprof.ListenSignals(ctx, logger, f.CPUProfileFile, f.CPUProfileDuration, f.MemProfileFile)
+		return nil
+	})
+
+	g.Go(func() error {
+		return runHTTPServer(ctx, ms, db, logger, f)
+	})
+
+	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+		log.Fatal(err)
 	}
 }
 
-func run(ms *service.MemStorage, db *sql.DB, logger *zap.SugaredLogger, f *flags) error {
+func runHTTPServer(ctx context.Context, ms *service.MemStorage, db *sql.DB, logger *zap.SugaredLogger, f *flags) error {
 	f.RunAddr = normalizeAddr(f.RunAddr)
 	fmt.Println("Running server on", f.RunAddr)
 
@@ -78,18 +91,51 @@ func run(ms *service.MemStorage, db *sql.DB, logger *zap.SugaredLogger, f *flags
 		f.Key,
 	)
 
-	return http.ListenAndServe(f.RunAddr, router.Metric(h))
+	srv := &http.Server{
+		Addr:    f.RunAddr,
+		Handler: router.Metric(h),
+	}
+
+	shutdownErr := make(chan error, 1)
+	go func() {
+		<-ctx.Done()
+
+		ctxTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		shutdownErr <- srv.Shutdown(ctxTimeout)
+	}()
+
+	err := srv.ListenAndServe()
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+
+	select {
+	case err := <-shutdownErr:
+		return err
+	default:
+		return nil
+	}
 }
 
-func runMetricDumper(ms *service.MemStorage, f *flags) {
+func runMetricDumper(ctx context.Context, ms *service.MemStorage, f *flags) error {
+	if f.StoreInterval <= 0 {
+		return nil
+	}
+
 	ticker := time.NewTicker(time.Duration(f.StoreInterval) * time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		err := ms.FlushToFile()
-
-		if err != nil {
-			log.Printf("cannot save metrics: %v", err)
+	for {
+		select {
+		case <-ctx.Done():
+			_ = ms.FlushToFile()
+			return ctx.Err()
+		case <-ticker.C:
+			if err := ms.FlushToFile(); err != nil {
+				log.Printf("cannot save metrics: %v", err)
+			}
 		}
 	}
 }
