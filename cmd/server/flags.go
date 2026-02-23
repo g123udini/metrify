@@ -19,6 +19,7 @@ type flags struct {
 	CPUProfileFile     string        `env:"CPU_PROFILE_FILE"`
 	CPUProfileDuration time.Duration `env:"CPU_PROFILE_DURATION"`
 	MemProfileFile     string        `env:"MEM_PROFILE_FILE"`
+	CryptoKey          string        `env:"CRYPTO_KEY"`
 }
 
 func parseFlags() *flags {
@@ -34,6 +35,7 @@ func parseFlags() *flags {
 		CPUProfileFile:     "",
 		CPUProfileDuration: 0,
 		MemProfileFile:     "",
+		CryptoKey:          "",
 	}
 
 	flag.StringVar(&f.RunAddr, "a", f.RunAddr, "address and port to run server")
@@ -47,6 +49,7 @@ func parseFlags() *flags {
 	flag.StringVar(&f.CPUProfileFile, "cpu-profile-file", f.CPUProfileFile, "path to CPU profile file")
 	flag.DurationVar(&f.CPUProfileDuration, "cpu-profile-duration", f.CPUProfileDuration, "path to CPU profile duration")
 	flag.StringVar(&f.MemProfileFile, "mem-profile-file", f.MemProfileFile, "path to memory profile file")
+	flag.StringVar(&f.CryptoKey, "crypto-key", f.CryptoKey, "crypto key")
 
 	flag.Parse()
 

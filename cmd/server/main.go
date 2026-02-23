@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
 	"database/sql"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"github.com/golang-migrate/migrate/v4"
@@ -20,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -82,6 +86,15 @@ func runHTTPServer(ctx context.Context, ms *service.MemStorage, db *sql.DB, logg
 
 	auditPublisher := initAuditPublisher(f)
 
+	var privKey *rsa.PrivateKey
+	if f.CryptoKey != "" {
+		key, err := readPrivateKeyFromFile(f.CryptoKey)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		privKey = key
+	}
+
 	h := handler.NewHandler(
 		ms,
 		logger,
@@ -89,6 +102,7 @@ func runHTTPServer(ctx context.Context, ms *service.MemStorage, db *sql.DB, logg
 		auditPublisher,
 		f.StoreInterval == 0,
 		f.Key,
+		privKey,
 	)
 
 	srv := &http.Server{
@@ -227,4 +241,18 @@ func initAuditPublisher(f *flags) *audit.Publisher {
 	}
 
 	return p
+}
+
+func readPrivateKeyFromFile(filepath string) (*rsa.PrivateKey, error) {
+	keyBytes, err := os.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(keyBytes)
+	if block == nil {
+		return nil, fmt.Errorf("can`t decode PEM")
+	}
+
+	return x509.ParsePKCS1PrivateKey(block.Bytes)
 }

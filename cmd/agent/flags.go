@@ -14,6 +14,7 @@ type flags struct {
 	BatchUpdate    bool   `env:"BATCH_UPDATE"`
 	Key            string `env:"KEY"`
 	RateLimit      int    `env:"RATE_LIMIT"`
+	CryptoKey      string `env:"CRYPTO_KEY"`
 }
 
 func parseFlags() *flags {
@@ -24,6 +25,7 @@ func parseFlags() *flags {
 		BatchUpdate:    false,
 		Key:            "",
 		RateLimit:      1,
+		CryptoKey:      "",
 	}
 
 	flag.StringVar(&f.Host, "a", f.Host, "address and host to run server")
@@ -32,6 +34,7 @@ func parseFlags() *flags {
 	flag.BoolVar(&f.BatchUpdate, "b", f.BatchUpdate, "send metrics in batches")
 	flag.StringVar(&f.Key, "k", f.Key, "private key to use for authentication")
 	flag.IntVar(&f.RateLimit, "l", f.RateLimit, "rate limit")
+	flag.StringVar(&f.CryptoKey, "crypto-key", f.CryptoKey, "crypto key")
 
 	flag.Parse()
 

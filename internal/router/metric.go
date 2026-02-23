@@ -28,6 +28,7 @@ func Metric(handler *handler.Handler) chi.Router {
 	r.Use(handler.WithRequestCompress)
 	r.Use(handler.WithResponseCompress)
 	r.Use(handler.WithHashedRequest)
+	r.Use(handler.WithDecrypt)
 	r.Get("/swagger/*", httpSwagger.WrapHandler)
 
 	update(r, handler)
