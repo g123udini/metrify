@@ -5,6 +5,7 @@ import (
 	"github.com/caarlos0/env"
 	"log"
 	"metrify/internal/agent"
+	"metrify/internal/service"
 	"os"
 )
 
@@ -25,7 +26,7 @@ func parseFlags() *flags {
 	f := flags{}
 
 	if cnfPath != "" {
-		config, err := agent.ConfigFromFile(cnfPath)
+		config, err := service.FromFile[agent.Config](cnfPath)
 		if err != nil {
 			log.Fatalf("Could not load config file: %s", cnfPath)
 		}
