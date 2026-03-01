@@ -204,5 +204,11 @@ func getPublicKey(pathToKey string) (*rsa.PublicKey, error) {
 		return nil, err
 	}
 
-	return pubKey.(*rsa.PublicKey), nil
+	rsaKey, ok := pubKey.(*rsa.PublicKey)
+
+	if !ok {
+		return nil, fmt.Errorf("failed to parse RSA public key")
+	}
+
+	return rsaKey, nil
 }

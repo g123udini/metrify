@@ -401,11 +401,11 @@ func (handler *Handler) WithHashedRequest(h http.Handler) http.Handler {
 		}
 
 		body, err := io.ReadAll(r.Body)
+		defer r.Body.Close()
 		if err != nil {
 			http.Error(w, "failed to read body", http.StatusBadRequest)
 			return
 		}
-		defer r.Body.Close()
 
 		if service.SignData(body, handler.Key) != hash {
 			http.Error(w, "", http.StatusUnauthorized)
@@ -427,11 +427,11 @@ func (handler *Handler) WithDecrypt(next http.Handler) http.Handler {
 		}
 
 		body, err := io.ReadAll(r.Body)
+		defer r.Body.Close()
 		if err != nil {
 			http.Error(w, "Can't read request", http.StatusInternalServerError)
 			return
 		}
-		defer r.Body.Close()
 
 		decoded, err := base64.StdEncoding.DecodeString(string(body))
 		if err != nil {
