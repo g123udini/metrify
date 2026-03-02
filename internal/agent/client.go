@@ -1,6 +1,9 @@
 package agent
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"go.uber.org/zap"
@@ -13,20 +16,22 @@ import (
 
 // generate:reset
 type Client struct {
-	logger   *zap.SugaredLogger
-	resty    *resty.Client
-	host     string
-	hashKey  string
-	maxRetry int
+	logger    *zap.SugaredLogger
+	resty     *resty.Client
+	host      string
+	hashKey   string
+	maxRetry  int
+	publicKey *rsa.PublicKey
 }
 
-func NewClient(host string, logger *zap.SugaredLogger, hashKey string) *Client {
+func NewClient(host string, logger *zap.SugaredLogger, hashKey string, publicKey *rsa.PublicKey) *Client {
 	return &Client{
-		logger:   logger,
-		resty:    resty.New().SetTimeout(8),
-		host:     host,
-		hashKey:  hashKey,
-		maxRetry: 3,
+		logger:    logger,
+		resty:     resty.New().SetTimeout(8),
+		host:      host,
+		hashKey:   hashKey,
+		maxRetry:  3,
+		publicKey: publicKey,
 	}
 }
 
@@ -53,19 +58,29 @@ func (client *Client) UpdateMetrics(metrics []models.Metrics) error {
 }
 
 func (client *Client) sendRequest(path string, body []byte, maxRetry int) error {
-	client.
-		resty.
-		SetHeader("Content-Type", "application/json").
-		SetHostURL(fmt.Sprintf("http://%s", client.host))
+	client.resty.SetHostURL(fmt.Sprintf("http://%s", client.host))
+
+	req := client.resty.R().
+		SetHeader("Content-Type", "application/json")
 
 	if client.hashKey != "" {
-		client.resty.SetHeader("HashSHA256", service.SignData(body, client.hashKey))
+		req.SetHeader("HashSHA256", service.SignData(body, client.hashKey))
+	}
+
+	if client.publicKey != nil {
+		encBody, err := client.encryptBody(body)
+		if err != nil {
+			return err
+		}
+
+		body = encBody
+		req.SetHeader("Content-Type", "application/octet-stream")
+		req.SetHeader("Content-Encryption", "RSA-PKCS1v15")
 	}
 
 	resp, err := service.Retry(maxRetry, 1*time.Second, 2*time.Second, func() (*resty.Response, error) {
-		return client.resty.R().SetBody(body).Post(path)
+		return req.SetBody(body).Post(path)
 	})
-
 	if err != nil {
 		return err
 	}
@@ -75,4 +90,24 @@ func (client *Client) sendRequest(path string, body []byte, maxRetry int) error 
 	}
 
 	return nil
+}
+
+func (client *Client) encryptBody(plain []byte) ([]byte, error) {
+	if client.publicKey == nil {
+		return plain, nil
+	}
+
+	ciphertext, err := rsa.EncryptPKCS1v15(
+		rand.Reader,
+		client.publicKey,
+		plain,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	encoded := make([]byte, base64.StdEncoding.EncodedLen(len(ciphertext)))
+	base64.StdEncoding.Encode(encoded, ciphertext)
+
+	return encoded, nil
 }

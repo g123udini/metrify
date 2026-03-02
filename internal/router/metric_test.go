@@ -68,7 +68,7 @@ func TestMetric(t *testing.T) {
 	logger := service.NewLogger()
 	p := audit.NewPublisher()
 
-	h := handler.NewHandler(ms, logger, db, p, true, "")
+	h := handler.NewHandler(ms, logger, db, p, true, "", nil)
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()
 
@@ -98,7 +98,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method,
 func ExampleMetric_updateCounter() {
 	ms := service.NewMemStorage("", nil)
 	logger := service.NewLogger()
-	h := handler.NewHandler(ms, logger, nil, nil, false, "")
+	h := handler.NewHandler(ms, logger, nil, nil, false, "", nil)
 
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()
@@ -126,7 +126,7 @@ func ExampleMetric_updateCounter() {
 func ExampleMetric_updateGauge() {
 	ms := service.NewMemStorage("", nil)
 	logger := service.NewLogger()
-	h := handler.NewHandler(ms, logger, nil, nil, false, "")
+	h := handler.NewHandler(ms, logger, nil, nil, false, "", nil)
 
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()
@@ -154,7 +154,7 @@ func ExampleMetric_updateGauge() {
 func ExampleMetric_getCounter() {
 	ms := service.NewMemStorage("", nil)
 	logger := service.NewLogger()
-	h := handler.NewHandler(ms, logger, nil, nil, false, "")
+	h := handler.NewHandler(ms, logger, nil, nil, false, "", nil)
 
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()
@@ -189,7 +189,7 @@ func ExampleMetric_getCounter() {
 func ExampleMetric_invalidMetric() {
 	ms := service.NewMemStorage("", nil)
 	logger := service.NewLogger()
-	h := handler.NewHandler(ms, logger, nil, nil, false, "")
+	h := handler.NewHandler(ms, logger, nil, nil, false, "", nil)
 
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()

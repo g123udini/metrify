@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"metrify/internal/agent"
 	models "metrify/internal/model"
@@ -23,14 +26,22 @@ var (
 func main() {
 	fmt.Printf("version=%s, time=%s\n, commit=%s\n", BuildVersion, BuildTime, BuildCommit)
 	f := parseFlags()
-	metricChan := make(chan models.Metrics, 1000) // буфер, чтобы коллекторы не стопорились
+	metricChan := make(chan models.Metrics, 1000)
 	normalizedHost := normalizeHost(f.Host)
 	logger := service.NewLogger()
-	client := agent.NewClient(normalizedHost, logger, f.Key)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
+	var publicKey *rsa.PublicKey
 
+	if f.CryptoKey != "" {
+		var err error
+		publicKey, err = getPublicKey(f.CryptoKey)
+		if err != nil {
+			logger.Fatal(err)
+		}
+	}
+
+	client := agent.NewClient(normalizedHost, logger, f.Key, publicKey)
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
@@ -175,4 +186,29 @@ func normalizeHost(host string) string {
 		}
 	}
 	return host
+}
+
+func getPublicKey(pathToKey string) (*rsa.PublicKey, error) {
+	key, err := os.ReadFile(pathToKey)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(key)
+	if block == nil {
+		return nil, fmt.Errorf("failed to parse PEM block")
+	}
+
+	pubKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	rsaKey, ok := pubKey.(*rsa.PublicKey)
+
+	if !ok {
+		return nil, fmt.Errorf("failed to parse RSA public key")
+	}
+
+	return rsaKey, nil
 }

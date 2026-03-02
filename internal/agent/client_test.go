@@ -1,7 +1,10 @@
+// client_test.go
 package agent
 
 import (
-	"encoding/json"
+	"crypto/rand"
+	"crypto/rsa"
+	"encoding/base64"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,132 +12,159 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
-	models "metrify/internal/model"
+
 	"metrify/internal/service"
 )
 
-func TestClient_UpdateMetric_SendsRequestWithHeaders(t *testing.T) {
-	var gotMethod, gotPath, gotCT, gotHash string
+func TestClient_sendRequest_NoCrypto_SendsPlainBodyAndHash(t *testing.T) {
+	const (
+		path    = "/update"
+		hashKey = "secret"
+	)
+
+	wantBody := []byte(`{"hello":"world"}`)
+
+	var gotContentType string
+	var gotEnc string
+	var gotHash string
 	var gotBody []byte
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotMethod = r.Method
-		gotPath = r.URL.Path
-		gotCT = r.Header.Get("Content-Type")
+		if r.URL.Path != path {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		gotContentType = r.Header.Get("Content-Type")
+		gotEnc = r.Header.Get("Content-Encryption")
 		gotHash = r.Header.Get("HashSHA256")
+
 		b, _ := io.ReadAll(r.Body)
+		_ = r.Body.Close()
 		gotBody = b
 
 		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
 	}))
-	defer srv.Close()
+	t.Cleanup(srv.Close)
 
 	host := strings.TrimPrefix(srv.URL, "http://")
-	logger := zap.NewNop().Sugar()
 
-	c := NewClient(host, logger, "secret")
-	c.maxRetry = 1
+	c := NewClient(host, zap.NewNop().Sugar(), hashKey, nil)
 
-	var metric models.Metrics
-	wantBody, err := json.Marshal(metric)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
+	if err := c.sendRequest(path, wantBody, 1); err != nil {
+		t.Fatalf("sendRequest error: %v", err)
 	}
 
-	if err := c.UpdateMetric(metric); err != nil {
-		t.Fatalf("UpdateMetric err: %v", err)
+	if gotContentType != "application/json" {
+		t.Fatalf("Content-Type=%q want %q", gotContentType, "application/json")
 	}
-
-	if gotMethod != http.MethodPost {
-		t.Fatalf("method=%q want=%q", gotMethod, http.MethodPost)
-	}
-	if gotPath != "/update" {
-		t.Fatalf("path=%q want=%q", gotPath, "/update")
-	}
-	if !strings.Contains(gotCT, "application/json") {
-		t.Fatalf("Content-Type=%q want contains application/json", gotCT)
+	if gotEnc != "" {
+		t.Fatalf("Content-Encryption=%q want empty", gotEnc)
 	}
 	if string(gotBody) != string(wantBody) {
-		t.Fatalf("body=%s want=%s", string(gotBody), string(wantBody))
+		t.Fatalf("body=%q want %q", string(gotBody), string(wantBody))
 	}
 
-	wantHash := service.SignData(wantBody, "secret")
+	wantHash := service.SignData(wantBody, hashKey)
 	if gotHash != wantHash {
-		t.Fatalf("HashSHA256=%q want=%q", gotHash, wantHash)
+		t.Fatalf("HashSHA256=%q want %q", gotHash, wantHash)
 	}
 }
 
-func TestClient_UpdateMetric_WithoutHashHeaderWhenNoKey(t *testing.T) {
+func TestClient_sendRequest_WithCrypto_EncryptsBodyAndSetsHeaders(t *testing.T) {
+	const (
+		path    = "/updates"
+		hashKey = "secret"
+	)
+
+	// RSA keys for test
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	pub := &priv.PublicKey
+
+	plainBody := []byte(`{"k":"v"}`)
+
+	var gotContentType string
+	var gotEnc string
 	var gotHash string
+	var gotDecrypted []byte
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != path {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+
+		gotContentType = r.Header.Get("Content-Type")
+		gotEnc = r.Header.Get("Content-Encryption")
 		gotHash = r.Header.Get("HashSHA256")
+
+		encB64, _ := io.ReadAll(r.Body)
+		_ = r.Body.Close()
+
+		cipher, err := base64.StdEncoding.DecodeString(string(encB64))
+		if err != nil {
+			t.Fatalf("base64 decode: %v", err)
+		}
+
+		dec, err := rsa.DecryptPKCS1v15(rand.Reader, priv, cipher)
+		if err != nil {
+			t.Fatalf("rsa decrypt: %v", err)
+		}
+		gotDecrypted = dec
+
 		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
 	}))
-	defer srv.Close()
+	t.Cleanup(srv.Close)
 
 	host := strings.TrimPrefix(srv.URL, "http://")
-	logger := zap.NewNop().Sugar()
 
-	c := NewClient(host, logger, "")
-	c.maxRetry = 1
+	c := NewClient(host, zap.NewNop().Sugar(), hashKey, pub)
 
-	var metric models.Metrics
-	if err := c.UpdateMetric(metric); err != nil {
-		t.Fatalf("UpdateMetric err: %v", err)
+	if err := c.sendRequest(path, plainBody, 1); err != nil {
+		t.Fatalf("sendRequest error: %v", err)
 	}
 
-	if gotHash != "" {
-		t.Fatalf("HashSHA256=%q want empty", gotHash)
+	if gotContentType != "application/octet-stream" {
+		t.Fatalf("Content-Type=%q want %q", gotContentType, "application/octet-stream")
+	}
+	if gotEnc != "RSA-PKCS1v15" {
+		t.Fatalf("Content-Encryption=%q want %q", gotEnc, "RSA-PKCS1v15")
+	}
+
+	// hash должен считаться по исходному (нешифрованному) body
+	wantHash := service.SignData(plainBody, hashKey)
+	if gotHash != wantHash {
+		t.Fatalf("HashSHA256=%q want %q", gotHash, wantHash)
+	}
+
+	if string(gotDecrypted) != string(plainBody) {
+		t.Fatalf("decrypted=%q want %q", string(gotDecrypted), string(plainBody))
 	}
 }
 
-func TestClient_UpdateMetrics_SendsToUpdates(t *testing.T) {
-	var gotPath string
+func TestClient_sendRequest_Non200_ReturnsError(t *testing.T) {
+	const path = "/update"
+	wantBody := []byte("x")
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotPath = r.URL.Path
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("fail"))
 	}))
-	defer srv.Close()
+	t.Cleanup(srv.Close)
 
 	host := strings.TrimPrefix(srv.URL, "http://")
-	logger := zap.NewNop().Sugar()
+	c := NewClient(host, zap.NewNop().Sugar(), "", nil)
 
-	c := NewClient(host, logger, "k")
-	c.maxRetry = 1
-
-	var m models.Metrics
-	if err := c.UpdateMetrics([]models.Metrics{m, m}); err != nil {
-		t.Fatalf("UpdateMetrics err: %v", err)
-	}
-
-	if gotPath != "/updates" {
-		t.Fatalf("path=%q want=%q", gotPath, "/updates")
-	}
-}
-
-func TestClient_SendRequest_Non200ReturnsError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("bad"))
-	}))
-	defer srv.Close()
-
-	host := strings.TrimPrefix(srv.URL, "http://")
-	logger := zap.NewNop().Sugar()
-
-	c := NewClient(host, logger, "")
-	c.maxRetry = 1
-
-	err := c.sendRequest("/update", []byte(`{"x":1}`), 1)
+	err := c.sendRequest(path, wantBody, 1)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "unexpected status 400") {
-		t.Fatalf("err=%q want contains %q", err.Error(), "unexpected status 400")
+	if !strings.Contains(err.Error(), "unexpected status 500") {
+		t.Fatalf("error=%q, want contains %q", err.Error(), "unexpected status 500")
 	}
-	if !strings.Contains(err.Error(), "bad") {
-		t.Fatalf("err=%q want contains %q", err.Error(), "bad")
+	if !strings.Contains(err.Error(), "fail") {
+		t.Fatalf("error=%q, want contains %q", err.Error(), "fail")
 	}
 }

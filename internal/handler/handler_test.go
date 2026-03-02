@@ -29,7 +29,7 @@ func newTestHandler() (*Handler, *service.MemStorage) {
 	ms := newTestStorage()
 	logger := zap.NewNop().Sugar()
 	p := audit.NewPublisher()
-	h := NewHandler(ms, logger, nil, p, false, "")
+	h := NewHandler(ms, logger, nil, p, false, "", nil)
 	return h, ms
 }
 
