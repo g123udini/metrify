@@ -1,10 +1,10 @@
 package router
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"io"
 	"metrify/internal/audit"
 	"metrify/internal/handler"
@@ -14,6 +14,21 @@ import (
 	"os"
 	"testing"
 )
+
+func newTestStorage() *service.MemStorage {
+	f, _ := os.CreateTemp("", "memstorage-test-*.json")
+	path := f.Name()
+	f.Close()
+	return service.NewMemStorage(path, nil)
+}
+
+func newTestHandler() *handler.Handler {
+	ms := newTestStorage()
+	logger := zap.NewNop().Sugar()
+	p := audit.NewPublisher()
+	h := handler.NewHandler(ms, logger, nil, p, false, "", nil, "")
+	return h
+}
 
 func TestMetric(t *testing.T) {
 	tests := []struct {
@@ -59,16 +74,7 @@ func TestMetric(t *testing.T) {
 			content:  "text/plain",
 		},
 	}
-
-	filepath := "./testdata/metric/test.json"
-	dsn := "postgres://dev:dev@localhost:5432/dev"
-	db, _ := sql.Open("pgx", dsn)
-	defer os.Remove(filepath)
-	ms := service.NewMemStorage(filepath, db)
-	logger := service.NewLogger()
-	p := audit.NewPublisher()
-
-	h := handler.NewHandler(ms, logger, db, p, true, "", nil)
+	h := newTestHandler()
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()
 
@@ -96,9 +102,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method,
 }
 
 func ExampleMetric_updateCounter() {
-	ms := service.NewMemStorage("", nil)
-	logger := service.NewLogger()
-	h := handler.NewHandler(ms, logger, nil, nil, false, "", nil)
+	h := newTestHandler()
 
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()
@@ -124,9 +128,7 @@ func ExampleMetric_updateCounter() {
 }
 
 func ExampleMetric_updateGauge() {
-	ms := service.NewMemStorage("", nil)
-	logger := service.NewLogger()
-	h := handler.NewHandler(ms, logger, nil, nil, false, "", nil)
+	h := newTestHandler()
 
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()
@@ -152,9 +154,7 @@ func ExampleMetric_updateGauge() {
 }
 
 func ExampleMetric_getCounter() {
-	ms := service.NewMemStorage("", nil)
-	logger := service.NewLogger()
-	h := handler.NewHandler(ms, logger, nil, nil, false, "", nil)
+	h := newTestHandler()
 
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()
@@ -187,9 +187,7 @@ func ExampleMetric_getCounter() {
 }
 
 func ExampleMetric_invalidMetric() {
-	ms := service.NewMemStorage("", nil)
-	logger := service.NewLogger()
-	h := handler.NewHandler(ms, logger, nil, nil, false, "", nil)
+	h := newTestHandler()
 
 	ts := httptest.NewServer(Metric(h))
 	defer ts.Close()

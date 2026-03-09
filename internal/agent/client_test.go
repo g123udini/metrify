@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -166,5 +167,21 @@ func TestClient_sendRequest_Non200_ReturnsError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "fail") {
 		t.Fatalf("error=%q, want contains %q", err.Error(), "fail")
+	}
+}
+
+func TestGetOutboundIP(t *testing.T) {
+	ip, err := getOutboundIP()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if ip == "" {
+		t.Fatal("expected non-empty IP")
+	}
+
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		t.Fatalf("invalid IP returned: %s", ip)
 	}
 }

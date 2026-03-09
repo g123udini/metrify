@@ -10,6 +10,7 @@ import (
 	"gopkg.in/resty.v1"
 	models "metrify/internal/model"
 	"metrify/internal/service"
+	"net"
 	"net/http"
 	"time"
 )
@@ -78,6 +79,11 @@ func (client *Client) sendRequest(path string, body []byte, maxRetry int) error 
 		req.SetHeader("Content-Encryption", "RSA-PKCS1v15")
 	}
 
+	ip, err := getOutboundIP()
+	if err == nil {
+		req.SetHeader("X-Forwarded-For", ip)
+	}
+
 	resp, err := service.Retry(maxRetry, 1*time.Second, 2*time.Second, func() (*resty.Response, error) {
 		return req.SetBody(body).Post(path)
 	})
@@ -110,4 +116,16 @@ func (client *Client) encryptBody(plain []byte) ([]byte, error) {
 	base64.StdEncoding.Encode(encoded, ciphertext)
 
 	return encoded, nil
+}
+
+func getOutboundIP() (string, error) {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP.String(), nil
 }

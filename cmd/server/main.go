@@ -103,6 +103,7 @@ func runHTTPServer(ctx context.Context, ms *service.MemStorage, db *sql.DB, logg
 		f.StoreInterval == 0,
 		f.Key,
 		privKey,
+		f.TrustedSubnet,
 	)
 
 	srv := &http.Server{
