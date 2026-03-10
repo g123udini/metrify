@@ -27,7 +27,7 @@ type GRPCClient struct {
 }
 
 func NewGRPCClient(host string, logger *zap.SugaredLogger, hashKey string, publicKey *rsa.PublicKey) *GRPCClient {
-	conn, err := grpc.Dial(
+	conn, err := grpc.NewClient(
 		host,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
