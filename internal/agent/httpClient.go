@@ -10,13 +10,12 @@ import (
 	"gopkg.in/resty.v1"
 	models "metrify/internal/model"
 	"metrify/internal/service"
-	"net"
 	"net/http"
 	"time"
 )
 
 // generate:reset
-type Client struct {
+type HTTPClient struct {
 	logger    *zap.SugaredLogger
 	resty     *resty.Client
 	host      string
@@ -25,8 +24,8 @@ type Client struct {
 	publicKey *rsa.PublicKey
 }
 
-func NewClient(host string, logger *zap.SugaredLogger, hashKey string, publicKey *rsa.PublicKey) *Client {
-	return &Client{
+func NewHTTPClient(host string, logger *zap.SugaredLogger, hashKey string, publicKey *rsa.PublicKey) *HTTPClient {
+	return &HTTPClient{
 		logger:    logger,
 		resty:     resty.New().SetTimeout(8),
 		host:      host,
@@ -36,10 +35,13 @@ func NewClient(host string, logger *zap.SugaredLogger, hashKey string, publicKey
 	}
 }
 
-func (client *Client) UpdateMetric(metric models.Metrics) error {
+func (client *HTTPClient) Close() error {
+	return nil
+}
+
+func (client *HTTPClient) UpdateMetric(metric models.Metrics) error {
 	path := "/update"
 	body, err := json.Marshal(metric)
-
 	if err != nil {
 		return err
 	}
@@ -47,18 +49,18 @@ func (client *Client) UpdateMetric(metric models.Metrics) error {
 	return client.sendRequest(path, body, client.maxRetry)
 }
 
-func (client *Client) UpdateMetrics(metrics []models.Metrics) error {
+func (client *HTTPClient) UpdateMetrics(metrics []models.Metrics) error {
 	path := "/updates"
 	body, err := json.Marshal(metrics)
-
 	if err != nil {
-		client.logger.Errorw("failed to marshal metric", "error", err)
+		client.logger.Errorw("failed to marshal metrics", "error", err)
+		return err
 	}
 
 	return client.sendRequest(path, body, client.maxRetry)
 }
 
-func (client *Client) sendRequest(path string, body []byte, maxRetry int) error {
+func (client *HTTPClient) sendRequest(path string, body []byte, maxRetry int) error {
 	client.resty.SetHostURL(fmt.Sprintf("http://%s", client.host))
 
 	req := client.resty.R().
@@ -98,7 +100,7 @@ func (client *Client) sendRequest(path string, body []byte, maxRetry int) error 
 	return nil
 }
 
-func (client *Client) encryptBody(plain []byte) ([]byte, error) {
+func (client *HTTPClient) encryptBody(plain []byte) ([]byte, error) {
 	if client.publicKey == nil {
 		return plain, nil
 	}
@@ -116,16 +118,4 @@ func (client *Client) encryptBody(plain []byte) ([]byte, error) {
 	base64.StdEncoding.Encode(encoded, ciphertext)
 
 	return encoded, nil
-}
-
-func getOutboundIP() (string, error) {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil {
-		return "", err
-	}
-	defer conn.Close()
-
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-
-	return localAddr.IP.String(), nil
 }

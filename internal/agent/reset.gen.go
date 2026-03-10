@@ -2,9 +2,16 @@
 
 package agent
 
-func (x *Client) Reset() {
+func (x *HTTPClient) Reset() {
 	if x == nil {
 		return
 	}
-	*x = Client{}
+	*x = HTTPClient{}
+}
+
+func (x *GRPCClient) Reset() {
+	if x == nil {
+		return
+	}
+	*x = GRPCClient{}
 }

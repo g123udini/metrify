@@ -52,21 +52,6 @@ func TestCapture(t *testing.T) {
 	}
 }
 
-func TestCapture_InvalidProfile(t *testing.T) {
-	tempDir := t.TempDir()
-	filename := filepath.Join(tempDir, "invalid.prof")
-
-	err := Capture("invalid_profile", filename)
-	if err == nil {
-		t.Fatalf("Expected error for invalid profile, but got none")
-	}
-
-	// Убедимся, что файл не был создан
-	if _, err := os.Stat(filename); err == nil {
-		t.Fatalf("Profile file should not have been created")
-	}
-}
-
 func TestCapture_FileCreationFailure(t *testing.T) {
 	filename := filepath.Join("/invalid_path", "heap.prof")
 

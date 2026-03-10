@@ -24,6 +24,7 @@ type flags struct {
 	MemProfileFile     string        `env:"MEM_PROFILE_FILE"`
 	CryptoKey          string        `env:"CRYPTO_KEY"`
 	TrustedSubnet      string        `env:"TRUSTED_SUBNET"`
+	Protocol           string        `env:"PROTOCOL"`
 }
 
 func parseFlags() *flags {
@@ -70,6 +71,7 @@ func parseFlags() *flags {
 	flag.StringVar(&f.MemProfileFile, "mem-profile-file", f.MemProfileFile, "path to memory profile file")
 	flag.StringVar(&f.CryptoKey, "crypto-key", f.CryptoKey, "crypto key")
 	flag.StringVar(&f.TrustedSubnet, "t", f.CryptoKey, "trusted subnet")
+	flag.StringVar(&f.Protocol, "protocol", "http", "transport protocol: http or grpc")
 
 	flag.Parse()
 
@@ -110,4 +112,5 @@ func setDefaults(f *flags) {
 	f.MemProfileFile = ""
 	f.CryptoKey = ""
 	f.TrustedSubnet = ""
+	f.Protocol = "http"
 }

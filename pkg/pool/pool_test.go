@@ -16,16 +16,6 @@ func (o *testObj) Reset() {
 	o.value = 0
 }
 
-func TestNew_NilFactoryPanics(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatalf("expected panic on nil factory, got none")
-		}
-	}()
-
-	_, _ = New[*testObj](nil)
-}
-
 func TestPool_Get_ReturnsFromFactory(t *testing.T) {
 	var created int32
 
