@@ -166,7 +166,6 @@ package main
 import (
 	"github.com/gostaticanalysis/elseless"
 	"github.com/gostaticanalysis/nilerr"
-	"github.com/m1khal3v/gometheus/pkg/passes/nocall"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
 	"golang.org/x/tools/go/analysis/passes/appends"
@@ -217,14 +216,14 @@ import (
 	"golang.org/x/tools/go/analysis/passes/unusedwrite"
 	"golang.org/x/tools/go/analysis/passes/usesgenerics"
 	"honnef.co/go/tools/staticcheck"
+	"metrify/internal/service"
 )
 
 func main() {
-	nocall.SetupAnalyzer()
+	service.SetupAnalyzer()
 
 	analyzers := []*analysis.Analyzer{
-		// self-made
-		nocall.Analyzer,
+		service.Analyzer,
 		// external
 		nilerr.Analyzer,
 		elseless.Analyzer,
