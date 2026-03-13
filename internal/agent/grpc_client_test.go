@@ -65,14 +65,14 @@ func TestTransformMetricToProto_Gauge(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got.Id != "Alloc" {
-		t.Fatalf("got id %q, want Alloc", got.Id)
+	if got.GetId() != "Alloc" {
+		t.Fatalf("got id %q, want Alloc", got.GetId())
 	}
-	if got.Type != proto.Metric_GAUGE {
-		t.Fatalf("got type %v, want %v", got.Type, proto.Metric_GAUGE)
+	if got.GetType() != proto.Metric_GAUGE {
+		t.Fatalf("got type %v, want %v", got.GetType(), proto.Metric_GAUGE)
 	}
-	if got.Value != 12.5 {
-		t.Fatalf("got value %v, want 12.5", got.Value)
+	if got.GetValue() != 12.5 {
+		t.Fatalf("got value %v, want 12.5", got.GetValue())
 	}
 }
 
@@ -88,14 +88,14 @@ func TestTransformMetricToProto_Counter(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got.Id != "PollCount" {
-		t.Fatalf("got id %q, want PollCount", got.Id)
+	if got.GetId() != "PollCount" {
+		t.Fatalf("got id %q, want PollCount", got.GetId())
 	}
-	if got.Type != proto.Metric_COUNTER {
-		t.Fatalf("got type %v, want %v", got.Type, proto.Metric_COUNTER)
+	if got.GetType() != proto.Metric_COUNTER {
+		t.Fatalf("got type %v, want %v", got.GetType(), proto.Metric_COUNTER)
 	}
-	if got.Delta != 7 {
-		t.Fatalf("got delta %v, want 7", got.Delta)
+	if got.GetDelta() != 7 {
+		t.Fatalf("got delta %v, want 7", got.GetDelta())
 	}
 }
 
@@ -161,19 +161,19 @@ func TestGRPCClient_UpdateMetric(t *testing.T) {
 	if mock.lastReq == nil {
 		t.Fatal("expected request to be sent")
 	}
-	if len(mock.lastReq.Metrics) != 1 {
-		t.Fatalf("got %d metrics, want 1", len(mock.lastReq.Metrics))
+	if len(mock.lastReq.GetMetrics()) != 1 {
+		t.Fatalf("got %d metrics, want 1", len(mock.lastReq.GetMetrics()))
 	}
 
-	got := mock.lastReq.Metrics[0]
-	if got.Id != "Alloc" {
-		t.Fatalf("got id %q, want Alloc", got.Id)
+	got := mock.lastReq.GetMetrics()[0]
+	if got.GetId() != "Alloc" {
+		t.Fatalf("got id %q, want Alloc", got.GetId())
 	}
-	if got.Type != proto.Metric_GAUGE {
-		t.Fatalf("got type %v, want %v", got.Type, proto.Metric_GAUGE)
+	if got.GetType() != proto.Metric_GAUGE {
+		t.Fatalf("got type %v, want %v", got.GetType(), proto.Metric_GAUGE)
 	}
-	if got.Value != 42.25 {
-		t.Fatalf("got value %v, want 42.25", got.Value)
+	if got.GetValue() != 42.25 {
+		t.Fatalf("got value %v, want 42.25", got.GetValue())
 	}
 }
 
@@ -203,15 +203,15 @@ func TestGRPCClient_UpdateMetrics(t *testing.T) {
 	if mock.lastReq == nil {
 		t.Fatal("expected request to be sent")
 	}
-	if len(mock.lastReq.Metrics) != 2 {
-		t.Fatalf("got %d metrics, want 2", len(mock.lastReq.Metrics))
+	if len(mock.lastReq.GetMetrics()) != 2 {
+		t.Fatalf("got %d metrics, want 2", len(mock.lastReq.GetMetrics()))
 	}
 
-	if mock.lastReq.Metrics[0].Id != "Alloc" {
-		t.Fatalf("unexpected first metric id: %q", mock.lastReq.Metrics[0].Id)
+	if mock.lastReq.GetMetrics()[0].GetId() != "Alloc" {
+		t.Fatalf("unexpected first metric id: %q", mock.lastReq.GetMetrics()[0].GetId())
 	}
-	if mock.lastReq.Metrics[1].Id != "PollCount" {
-		t.Fatalf("unexpected second metric id: %q", mock.lastReq.Metrics[1].Id)
+	if mock.lastReq.GetMetrics()[1].GetId() != "PollCount" {
+		t.Fatalf("unexpected second metric id: %q", mock.lastReq.GetMetrics()[1].GetId())
 	}
 }
 

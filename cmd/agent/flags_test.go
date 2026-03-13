@@ -6,7 +6,9 @@ import (
 	"testing"
 )
 
-func resetFlags() {
+func resetFlags(t *testing.T) {
+	t.Helper()
+
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 }
 
@@ -32,10 +34,9 @@ func TestSetDefaults(t *testing.T) {
 }
 
 func TestGetConfigPath_FromFlag(t *testing.T) {
-	resetFlags()
+	resetFlags(t)
 
-	oldArgs := os.Args
-	defer func() { os.Args = oldArgs }()
+	t.Setenv("CONFIG", "test-config")
 
 	os.Args = []string{"cmd", "-config=test.json"}
 
@@ -47,13 +48,9 @@ func TestGetConfigPath_FromFlag(t *testing.T) {
 }
 
 func TestGetConfigPath_FromEnv(t *testing.T) {
-	resetFlags()
+	resetFlags(t)
 
-	old := os.Getenv("CONFIG")
-	defer os.Setenv("CONFIG", old)
-
-	os.Unsetenv("CONFIG")
-	os.Setenv("CONFIG", "env.json")
+	t.Setenv("CONFIG", "env.json")
 
 	oldArgs := os.Args
 	defer func() { os.Args = oldArgs }()
@@ -67,7 +64,7 @@ func TestGetConfigPath_FromEnv(t *testing.T) {
 }
 
 func TestParseFlags_Defaults(t *testing.T) {
-	resetFlags()
+	resetFlags(t)
 
 	oldArgs := os.Args
 	defer func() { os.Args = oldArgs }()
@@ -91,7 +88,7 @@ func TestParseFlags_Defaults(t *testing.T) {
 }
 
 func TestParseFlags_FromCLI(t *testing.T) {
-	resetFlags()
+	resetFlags(t)
 
 	oldArgs := os.Args
 	defer func() { os.Args = oldArgs }()

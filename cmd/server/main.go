@@ -80,7 +80,7 @@ func main() {
 		} else {
 			interceptor, err := rpc.NewTrustedSubnetInterceptor(f.TrustedSubnet)
 			if err != nil {
-				logger.Fatal(err)
+				logger.Error(err)
 			}
 
 			grpcServer := grpc.NewServer(

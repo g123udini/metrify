@@ -77,9 +77,9 @@ func TestMetricFromProto(t *testing.T) {
 	})
 
 	t.Run("empty id", func(t *testing.T) {
-		_, err := metricFromProto(&proto.Metric{
-			Type: proto.Metric_GAUGE,
-		})
+		metric := &proto.Metric{}
+		metric.SetType(proto.Metric_GAUGE)
+		_, err := metricFromProto(metric)
 		if err == nil {
 			t.Fatal("expected error")
 		}
@@ -89,11 +89,12 @@ func TestMetricFromProto(t *testing.T) {
 	})
 
 	t.Run("gauge metric", func(t *testing.T) {
-		got, err := metricFromProto(&proto.Metric{
-			Id:    "Alloc",
-			Type:  proto.Metric_GAUGE,
-			Value: 12.5,
-		})
+		metric := &proto.Metric{}
+		metric.SetId("Alloc")
+		metric.SetType(proto.Metric_GAUGE)
+		metric.SetValue(12.5)
+
+		got, err := metricFromProto(metric)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -109,11 +110,12 @@ func TestMetricFromProto(t *testing.T) {
 	})
 
 	t.Run("counter metric", func(t *testing.T) {
-		got, err := metricFromProto(&proto.Metric{
-			Id:    "PollCount",
-			Type:  proto.Metric_COUNTER,
-			Delta: 7,
-		})
+		metric := &proto.Metric{}
+		metric.SetId("PollCount")
+		metric.SetType(proto.Metric_COUNTER)
+		metric.SetDelta(7)
+		got, err := metricFromProto(metric)
+
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -129,10 +131,11 @@ func TestMetricFromProto(t *testing.T) {
 	})
 
 	t.Run("unknown metric type", func(t *testing.T) {
-		_, err := metricFromProto(&proto.Metric{
-			Id:   "Broken",
-			Type: proto.Metric_MType(99),
-		})
+		metric := &proto.Metric{}
+		metric.SetId("Broken")
+		metric.SetType(proto.Metric_MType(99))
+
+		_, err := metricFromProto(metric)
 		if err == nil {
 			t.Fatal("expected error")
 		}
@@ -160,12 +163,8 @@ func TestMetricsService_UpdateMetrics(t *testing.T) {
 	t.Run("invalid metric in request", func(t *testing.T) {
 		st := newStorageMock()
 		svc := NewMetricsService(st)
-
-		req := &proto.UpdateMetricsRequest{
-			Metrics: []*proto.Metric{
-				nil,
-			},
-		}
+		req := &proto.UpdateMetricsRequest{}
+		req.SetMetrics([]*proto.Metric{nil})
 
 		_, err := svc.UpdateMetrics(context.Background(), req)
 		if err == nil {
@@ -181,20 +180,18 @@ func TestMetricsService_UpdateMetrics(t *testing.T) {
 		st := newStorageMock()
 		svc := NewMetricsService(st)
 
-		req := &proto.UpdateMetricsRequest{
-			Metrics: []*proto.Metric{
-				{
-					Id:    "Alloc",
-					Type:  proto.Metric_GAUGE,
-					Value: 42.5,
-				},
-				{
-					Id:    "PollCount",
-					Type:  proto.Metric_COUNTER,
-					Delta: 3,
-				},
-			},
-		}
+		gaugeMetric := &proto.Metric{}
+		gaugeMetric.SetId("Alloc")
+		gaugeMetric.SetType(proto.Metric_GAUGE)
+		gaugeMetric.SetValue(42.5)
+
+		counterMetric := &proto.Metric{}
+		counterMetric.SetId("PollCount")
+		counterMetric.SetType(proto.Metric_COUNTER)
+		counterMetric.SetDelta(3)
+
+		req := &proto.UpdateMetricsRequest{}
+		req.SetMetrics([]*proto.Metric{gaugeMetric, counterMetric})
 
 		resp, err := svc.UpdateMetrics(context.Background(), req)
 		if err != nil {
@@ -225,16 +222,12 @@ func TestMetricsService_UpdateMetrics(t *testing.T) {
 		st := newStorageMock()
 		st.updateGaugeErr = errors.New("db failed")
 		svc := NewMetricsService(st)
-
-		req := &proto.UpdateMetricsRequest{
-			Metrics: []*proto.Metric{
-				{
-					Id:    "Alloc",
-					Type:  proto.Metric_GAUGE,
-					Value: 1.23,
-				},
-			},
-		}
+		req := &proto.UpdateMetricsRequest{}
+		gaugeMetric := &proto.Metric{}
+		gaugeMetric.SetId("Alloc")
+		gaugeMetric.SetType(proto.Metric_GAUGE)
+		gaugeMetric.SetValue(42.5)
+		req.SetMetrics([]*proto.Metric{gaugeMetric})
 
 		_, err := svc.UpdateMetrics(context.Background(), req)
 		if err == nil {
@@ -251,15 +244,12 @@ func TestMetricsService_UpdateMetrics(t *testing.T) {
 		st.updateCounterErr = errors.New("counter failed")
 		svc := NewMetricsService(st)
 
-		req := &proto.UpdateMetricsRequest{
-			Metrics: []*proto.Metric{
-				{
-					Id:    "PollCount",
-					Type:  proto.Metric_COUNTER,
-					Delta: 5,
-				},
-			},
-		}
+		req := &proto.UpdateMetricsRequest{}
+		metric := &proto.Metric{}
+		metric.SetId("PollCount")
+		metric.SetType(proto.Metric_COUNTER)
+		metric.SetDelta(7)
+		req.SetMetrics([]*proto.Metric{metric})
 
 		_, err := svc.UpdateMetrics(context.Background(), req)
 		if err == nil {
@@ -275,9 +265,8 @@ func TestMetricsService_UpdateMetrics(t *testing.T) {
 		st := newStorageMock()
 		svc := NewMetricsService(st)
 
-		req := &proto.UpdateMetricsRequest{
-			Metrics: []*proto.Metric{},
-		}
+		req := &proto.UpdateMetricsRequest{}
+		req.SetMetrics([]*proto.Metric{})
 
 		resp, err := svc.UpdateMetrics(context.Background(), req)
 		if err != nil {

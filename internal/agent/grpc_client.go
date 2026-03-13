@@ -59,9 +59,7 @@ func (client *GRPCClient) UpdateMetric(metric models.Metrics) error {
 }
 
 func (client *GRPCClient) UpdateMetrics(metrics []models.Metrics) error {
-	req := &proto.UpdateMetricsRequest{
-		Metrics: make([]*proto.Metric, 0, len(metrics)),
-	}
+	protoMetrics := make([]*proto.Metric, 0, len(metrics))
 
 	for _, metric := range metrics {
 		protoMetric, err := transformMetricToProto(metric)
@@ -69,8 +67,11 @@ func (client *GRPCClient) UpdateMetrics(metrics []models.Metrics) error {
 			return err
 		}
 
-		req.Metrics = append(req.Metrics, protoMetric)
+		protoMetrics = append(protoMetrics, protoMetric)
 	}
+
+	req := &proto.UpdateMetricsRequest{}
+	req.SetMetrics(protoMetrics)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
@@ -100,28 +101,29 @@ func (client *GRPCClient) withRealIP(ctx context.Context) context.Context {
 }
 
 func transformMetricToProto(metric models.Metrics) (*proto.Metric, error) {
+	m := &proto.Metric{}
+	m.SetId(metric.ID)
+
 	switch metric.MType {
 	case models.Gauge:
 		if metric.Value == nil {
 			return nil, fmt.Errorf("gauge metric %q has nil value", metric.ID)
 		}
 
-		return &proto.Metric{
-			Id:    metric.ID,
-			Type:  proto.Metric_GAUGE,
-			Value: *metric.Value,
-		}, nil
+		m.SetType(proto.Metric_GAUGE)
+		m.SetValue(*metric.Value)
+
+		return m, nil
 
 	case models.Counter:
 		if metric.Delta == nil {
 			return nil, fmt.Errorf("counter metric %q has nil delta", metric.ID)
 		}
 
-		return &proto.Metric{
-			Id:    metric.ID,
-			Type:  proto.Metric_COUNTER,
-			Delta: *metric.Delta,
-		}, nil
+		m.SetType(proto.Metric_COUNTER)
+		m.SetDelta(*metric.Delta)
+
+		return m, nil
 
 	default:
 		return nil, fmt.Errorf("unknown metric type %q", metric.MType)
