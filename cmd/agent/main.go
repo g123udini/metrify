@@ -41,7 +41,13 @@ func main() {
 		}
 	}
 
-	client := agent.NewClient(normalizedHost, logger, f.Key, publicKey)
+	var client agent.Sender
+	client, err := agent.NewSender(f.Protocol, normalizedHost, logger, f.Key, publicKey)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	defer client.Close()
+
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
@@ -125,7 +131,7 @@ func runGopsutilCollector(
 
 func runSender(
 	ctx context.Context,
-	client *agent.Client,
+	client agent.Sender,
 	f *flags,
 	metricChan <-chan models.Metrics,
 ) {

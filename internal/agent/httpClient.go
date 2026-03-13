@@ -15,7 +15,7 @@ import (
 )
 
 // generate:reset
-type Client struct {
+type HTTPClient struct {
 	logger    *zap.SugaredLogger
 	resty     *resty.Client
 	host      string
@@ -24,8 +24,8 @@ type Client struct {
 	publicKey *rsa.PublicKey
 }
 
-func NewClient(host string, logger *zap.SugaredLogger, hashKey string, publicKey *rsa.PublicKey) *Client {
-	return &Client{
+func NewHTTPClient(host string, logger *zap.SugaredLogger, hashKey string, publicKey *rsa.PublicKey) *HTTPClient {
+	return &HTTPClient{
 		logger:    logger,
 		resty:     resty.New().SetTimeout(8),
 		host:      host,
@@ -35,10 +35,13 @@ func NewClient(host string, logger *zap.SugaredLogger, hashKey string, publicKey
 	}
 }
 
-func (client *Client) UpdateMetric(metric models.Metrics) error {
+func (client *HTTPClient) Close() error {
+	return nil
+}
+
+func (client *HTTPClient) UpdateMetric(metric models.Metrics) error {
 	path := "/update"
 	body, err := json.Marshal(metric)
-
 	if err != nil {
 		return err
 	}
@@ -46,18 +49,18 @@ func (client *Client) UpdateMetric(metric models.Metrics) error {
 	return client.sendRequest(path, body, client.maxRetry)
 }
 
-func (client *Client) UpdateMetrics(metrics []models.Metrics) error {
+func (client *HTTPClient) UpdateMetrics(metrics []models.Metrics) error {
 	path := "/updates"
 	body, err := json.Marshal(metrics)
-
 	if err != nil {
-		client.logger.Errorw("failed to marshal metric", "error", err)
+		client.logger.Errorw("failed to marshal metrics", "error", err)
+		return err
 	}
 
 	return client.sendRequest(path, body, client.maxRetry)
 }
 
-func (client *Client) sendRequest(path string, body []byte, maxRetry int) error {
+func (client *HTTPClient) sendRequest(path string, body []byte, maxRetry int) error {
 	client.resty.SetHostURL(fmt.Sprintf("http://%s", client.host))
 
 	req := client.resty.R().
@@ -78,6 +81,11 @@ func (client *Client) sendRequest(path string, body []byte, maxRetry int) error 
 		req.SetHeader("Content-Encryption", "RSA-PKCS1v15")
 	}
 
+	ip, err := getOutboundIP()
+	if err == nil {
+		req.SetHeader("X-Forwarded-For", ip)
+	}
+
 	resp, err := service.Retry(maxRetry, 1*time.Second, 2*time.Second, func() (*resty.Response, error) {
 		return req.SetBody(body).Post(path)
 	})
@@ -92,7 +100,7 @@ func (client *Client) sendRequest(path string, body []byte, maxRetry int) error 
 	return nil
 }
 
-func (client *Client) encryptBody(plain []byte) ([]byte, error) {
+func (client *HTTPClient) encryptBody(plain []byte) ([]byte, error) {
 	if client.publicKey == nil {
 		return plain, nil
 	}

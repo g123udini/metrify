@@ -14,11 +14,14 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 	"log"
 	"metrify/internal/audit"
 	"metrify/internal/handler"
 	"metrify/internal/pprof"
+	"metrify/internal/proto"
 	"metrify/internal/router"
+	"metrify/internal/rpc"
 	"metrify/internal/service"
 	"net"
 	"net/http"
@@ -72,7 +75,22 @@ func main() {
 	})
 
 	g.Go(func() error {
-		return runHTTPServer(ctx, ms, db, logger, f)
+		if f.Protocol == "http" {
+			return runHTTPServer(ctx, ms, db, logger, f)
+		} else {
+			interceptor, err := rpc.NewTrustedSubnetInterceptor(f.TrustedSubnet)
+			if err != nil {
+				logger.Error(err)
+			}
+
+			grpcServer := grpc.NewServer(
+				grpc.UnaryInterceptor(interceptor),
+			)
+
+			proto.RegisterMetricsServer(grpcServer, rpc.NewMetricsService(ms))
+
+			return err
+		}
 	})
 
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
@@ -103,6 +121,7 @@ func runHTTPServer(ctx context.Context, ms *service.MemStorage, db *sql.DB, logg
 		f.StoreInterval == 0,
 		f.Key,
 		privKey,
+		f.TrustedSubnet,
 	)
 
 	srv := &http.Server{

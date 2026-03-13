@@ -23,6 +23,8 @@ type flags struct {
 	CPUProfileDuration time.Duration `env:"CPU_PROFILE_DURATION"`
 	MemProfileFile     string        `env:"MEM_PROFILE_FILE"`
 	CryptoKey          string        `env:"CRYPTO_KEY"`
+	TrustedSubnet      string        `env:"TRUSTED_SUBNET"`
+	Protocol           string        `env:"PROTOCOL"`
 }
 
 func parseFlags() *flags {
@@ -68,6 +70,8 @@ func parseFlags() *flags {
 	flag.DurationVar(&f.CPUProfileDuration, "cpu-profile-duration", f.CPUProfileDuration, "path to CPU profile duration")
 	flag.StringVar(&f.MemProfileFile, "mem-profile-file", f.MemProfileFile, "path to memory profile file")
 	flag.StringVar(&f.CryptoKey, "crypto-key", f.CryptoKey, "crypto key")
+	flag.StringVar(&f.TrustedSubnet, "t", f.CryptoKey, "trusted subnet")
+	flag.StringVar(&f.Protocol, "protocol", "http", "transport protocol: http or grpc")
 
 	flag.Parse()
 
@@ -107,4 +111,6 @@ func setDefaults(f *flags) {
 	f.CPUProfileDuration = 0
 	f.MemProfileFile = ""
 	f.CryptoKey = ""
+	f.TrustedSubnet = ""
+	f.Protocol = "http"
 }
