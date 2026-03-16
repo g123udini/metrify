@@ -19,6 +19,7 @@ type flags struct {
 	RateLimit      int    `env:"RATE_LIMIT"`
 	CryptoKey      string `env:"CRYPTO_KEY"`
 	Config         string `env:"CONFIG"`
+	Protocol       string `env:"PROTOCOL"`
 }
 
 func parseFlags() *flags {
@@ -52,6 +53,7 @@ func parseFlags() *flags {
 	flag.IntVar(&f.RateLimit, "l", f.RateLimit, "rate limit")
 	flag.StringVar(&f.CryptoKey, "crypto-key", f.CryptoKey, "crypto key")
 	flag.StringVar(&f.Config, "config", f.Config, "configuration file")
+	flag.StringVar(&f.Protocol, "protocol", "http", "transport protocol: http or grpc")
 
 	flag.Parse()
 
@@ -87,4 +89,5 @@ func setDefaults(f *flags) {
 	f.RateLimit = 1
 	f.CryptoKey = ""
 	f.Config = ""
+	f.Protocol = "http"
 }
